@@ -1,0 +1,5 @@
+#!/bin/sh
+python kemono_ripper/genrev.py
+git add kemono_ripper/version.py
+git add pyproject.toml
+ruff check --fix --unsafe-fixes --show-fixes
