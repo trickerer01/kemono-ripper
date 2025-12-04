@@ -7,13 +7,15 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 
 import json
+import pathlib
+import sys
 from collections.abc import Callable, Coroutine
 
 from bs4 import BeautifulSoup
 
 from .api import Creator, Kemono, ScannedPost, ScannedPostPost
 from .config import Config
-from .defs import UTF8
+from .defs import CREATORS_NAME_DEFAULT, UTF8
 from .logger import Log
 
 __all__ = ('launch',)
@@ -44,7 +46,7 @@ def _process_scan_results(kemono: Kemono, results) -> None:
 
 async def creator_dump(kemono: Kemono) -> None:
     results = await kemono.list_creators()
-    with open(Config.dest_base / 'creators.json', 'wt', encoding=UTF8, newline='\n') as outfile_creators:
+    with open(Config.dest_base / CREATORS_NAME_DEFAULT, 'wt', encoding=UTF8, newline='\n') as outfile_creators:
         json.dump(sorted(results, key=lambda c: c['name'].lower()), outfile_creators, ensure_ascii=False, indent=4)
         outfile_creators.write('\n')
 
@@ -89,6 +91,33 @@ async def post_scan_link(kemono: Kemono) -> None:
     _process_scan_results(kemono, results)
 
 
+def _config_write(config_path: pathlib.Path) -> None:
+    Log.info(f'Writing configuration to {config_path.as_posix()}...')
+    with open(config_path, 'wt', encoding=UTF8) as outfile_settings:
+        json.dump(Config.to_json(), outfile_settings, ensure_ascii=False, indent=4)
+        outfile_settings.write('\n')
+    Log.info('Done')
+
+
+async def config_create(*_) -> None:  # noqa RUF029
+    config_path = Config.default_config_path()
+    if config_path.exists():
+        ans = 'q'
+        while ans not in 'YyNn10':
+            ans = input(f'File \'{config_path.name}\' already exists! Overwrite? [y/N] ')
+        if ans in 'Nn0':
+            return
+    _config_write(config_path)
+
+
+async def config_modify(*_) -> None:  # noqa RUF029
+    if ' '.join(sys.argv).endswith(Config.get_action_string()):
+        Log.error('No settings modifications provided. Aborting')
+        return
+    config_path = Config.default_config_path()
+    _config_write(config_path)
+
+
 async def launch(kemono: Kemono) -> None:
     kemono_actions: dict[str, Callable[[Kemono], Coroutine[None]]] = {
         'creator dump': creator_dump,
@@ -96,11 +125,13 @@ async def launch(kemono: Kemono) -> None:
         'post list': post_list,
         'post scan id': post_scan_id,
         'post scan link': post_scan_link,
+        'config create': config_create,
+        'config modify': config_modify,
     }
 
-    action_name = ' '.join(getattr(Config, _) for _ in vars(Config) if _.startswith('subcommand')).strip()
+    action_name = Config.get_action_string()
     proc: Callable[[Kemono], Coroutine[None]] = kemono_actions.get(action_name)
-    assert proc, f'Unknows action \'{action_name}\'!'
+    assert proc, f'Unknown action \'{action_name}\'!'
     return await proc(kemono)
 
 #

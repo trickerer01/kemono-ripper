@@ -8,23 +8,24 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 # scan post content +
 # read links from file
 # download files/attachments
-# config to store values + default
+# config to store values, default +
 # downloader of external links (mega, gdrive, etc.)
 # cache last downloaded post id in config (per creator) for rescan
 #
 
+import json
 import sys
 from asyncio import get_running_loop, run, sleep
 from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
 from .api import DownloadMode, Kemono, KemonoAPIError, KemonoOptions
-from .cmdargs import HelpPrintExitException, parse_logging_args, prepare_arglist
+from .cmdargs import MODULE, HelpPrintExitException, parse_logging_args, prepare_arglist
 from .config import Config
-from .defs import MIN_PYTHON_VERSION, MIN_PYTHON_VERSION_STR
+from .defs import CONFIG_NAME_DEFAULT, MIN_PYTHON_VERSION, MIN_PYTHON_VERSION_STR, UTF8
 from .filters import FileNameFilter, FileSizeFilter
+from .launcher import launch
 from .logger import Log
-from .scanner import launch
 from .version import APP_NAME, APP_VERSION
 
 __all__ = ('main_async', 'main_sync')
@@ -45,6 +46,19 @@ def at_startup(args: Sequence[str]) -> None:
     if argv_set.intersection({'--version', '--help'}):
         return
     Log.debug(f'Python {sys.version}\n{APP_NAME} ver {APP_VERSION}\nCommand-line args: {" ".join(sys.argv)}')
+
+
+def autopick_config() -> None:
+    base_config_path = Config.default_config_path()
+    try:
+        Log.debug(f'Looking for {CONFIG_NAME_DEFAULT}...')
+        with open(base_config_path, 'rt', encoding=UTF8) as in_file:
+            Log.debug(f'Using base configuration file {base_config_path.as_posix()}')
+            Config.from_json(json.load(in_file))
+    except OSError:
+        Log.warn(f'Warning: config file \'{CONFIG_NAME_DEFAULT}\' is not found in \'{base_config_path.parent.as_posix()}\'!'
+                 f' Default setting will be used.'
+                 f'\nYou can make base config file for autoconfiguration using \'{MODULE} config create\' command')
 
 
 def make_kemono_options() -> KemonoOptions:
@@ -71,6 +85,7 @@ def make_kemono_options() -> KemonoOptions:
 
 async def main(args: Sequence[str]) -> int:
     try:
+        autopick_config()
         prepare_arglist(args)
     except HelpPrintExitException:
         return 0
