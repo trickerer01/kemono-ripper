@@ -57,7 +57,7 @@ from .validators import (
 )
 from .version import APP_NAME, APP_VERSION
 
-__all__ = ('HelpPrintExitException', 'prepare_arglist')
+__all__ = ('HelpPrintExitException', 'parse_logging_args', 'prepare_arglist')
 
 MODULE = APP_NAME.replace('-', '_')
 INDENT = ' ' * 7
@@ -98,6 +98,14 @@ class HelpPrintExitException(Exception):
     pass
 
 
+def parse_logging_args(args: Sequence[str]) -> None:
+    parser = ArgumentParser(add_help=False)
+    add_logging_args(parser)
+    parsed = parser.parse_known_args(args)
+    Config.logging_flags = parsed[0].log_level
+    Config.nocolors = parsed[0].disable_log_colors
+
+
 def execute_parser(parser: ArgumentParser, args: Sequence[str]) -> Namespace:
     if not args:
         parser.print_help()
@@ -116,20 +124,24 @@ def execute_parser(parser: ArgumentParser, args: Sequence[str]) -> Namespace:
 
 def create_parsers() -> dict[str, ArgumentParser]:
     def create_parser(sub, name: str, description: str) -> ArgumentParser:
-        parser: ArgumentParser = sub.add_parser(PARSER_TITLE_NAMES_REMAP.get(name, name), description=description, add_help=False)
+        if sub:
+            parser: ArgumentParser = sub.add_parser(PARSER_TITLE_NAMES_REMAP.get(name, name), description=description, add_help=False)
+        else:
+            parser = ArgumentParser(add_help=False, prog=APP_NAME.replace('-', '_'))
         assert name not in parsers
         parsers[name] = parser
         return parser
 
+    def create_subparser(parser: ArgumentParser, title: str, dest: str):
+        return parser.add_subparsers(required=True, title=title, dest=dest, prog=APP_NAME.replace('-', '_'))
+
     parsers: dict[str, ArgumentParser] = {}
 
-    parser_main = ArgumentParser(add_help=False)
-    parsers[PARSER_TITLE_NONE] = parser_main
-
-    subs_main = parser_main.add_subparsers(required=True, title='subcommands', dest='subcommand_1')
+    parser_main = create_parser(None, PARSER_TITLE_NONE, '')
+    subs_main = create_subparser(parser_main, 'subcommands', 'subcommand_1')
 
     par_creators = create_parser(subs_main, PARSER_TITLE_CREATOR, '')
-    subs_creators = par_creators.add_subparsers(required=True, title='creator', dest='subcommand_2')
+    subs_creators = create_subparser(par_creators, 'creator', 'subcommand_2')
     # subs_creators.add_parser("", )
     _ = create_parser(subs_creators, PARSER_TITLE_CREATOR_LIST, 'List creators')
     _ = create_parser(subs_creators, PARSER_TITLE_CREATOR_DUMP, 'Dump ALL creators list to a JSON file')
@@ -137,11 +149,11 @@ def create_parsers() -> dict[str, ArgumentParser]:
     _ = create_parser(subs_creators, PARSER_TITLE_CREATOR_RIP, 'Scan all creator post pages and download everything')
 
     par_posts = create_parser(subs_main, PARSER_TITLE_POST, '')
-    subs_posts = par_posts.add_subparsers(required=True, title='post', dest='subcommand_2')
+    subs_posts = create_subparser(par_posts, 'post', 'subcommand_2')
     _ = create_parser(subs_posts, PARSER_TITLE_POST_LIST, 'List creator posts')
 
     par_post_scan = create_parser(subs_posts, PARSER_TITLE_POST_SCAN, 'Scan posts')
-    subs_posts_scan = par_post_scan.add_subparsers(required=True, title='scan by', dest='subcommand_3')
+    subs_posts_scan = create_subparser(par_post_scan, 'scan by', 'subcommand_3')
     _ = create_parser(subs_posts_scan, PARSER_TITLE_POST_SCAN_ID, 'Scan posts by post id')
     _ = create_parser(subs_posts_scan, PARSER_TITLE_POST_SCAN_LINK, 'Scan posts by URL')
 
@@ -159,8 +171,8 @@ def add_help(par: ArgumentParser, is_root: bool):
 
 def add_common_args(par: ArgumentParser) -> None:
     ke = par.add_argument_group(title='kemono options')
-    ke.add_argument('-a', '--api-address', default=API_ADDRESS_DEFAULT, help=HELP_ARG_API_ADDRESS, choices=APIAddress.__args__)
-    ke.add_argument('-s', '--service', default=SERVICE_DEFAULT, help=HELP_ARG_SERVICE, choices=APIService.__args__)
+    ke.add_argument('--api-address', default=API_ADDRESS_DEFAULT, help=HELP_ARG_API_ADDRESS, choices=APIAddress.__args__)
+    ke.add_argument('--service', default=SERVICE_DEFAULT, help=HELP_ARG_SERVICE, choices=APIService.__args__)
     co = par.add_argument_group(title='connection options')
     co.add_argument('-x', '--proxy', metavar='#type://[u:p@]a.d.d.r:port', default=None, help=HELP_ARG_PROXY, type=valid_proxy)
     co.add_argument('-t', '--timeout', metavar='#seconds', default=valid_timeout(''), help=HELP_ARG_TIMEOUT, type=valid_timeout)
@@ -171,9 +183,12 @@ def add_common_args(par: ArgumentParser) -> None:
     do.add_argument('-o', '--path', default=valid_folder_path(os.path.curdir), help=HELP_ARG_PATH, type=valid_folder_path)
     do.add_argument('-d', '--download-mode', default=DM_DEFAULT, help=HELP_ARG_DMMODE, choices=DOWNLOAD_MODES)
     do.add_argument('-j', '--max-jobs', metavar='#number', default=MAX_JOBS_DEFAULT, help=HELP_ARG_MAXJOBS, type=valid_maxjobs)
-    dofi = do.add_argument_group(title='filtering options')
+    dofi = par.add_argument_group(title='filtering options')
     dofi.add_argument('-fs', '--filter-filesize', metavar='#min-max', default=None, help='', type=valid_range)
     dofi.add_argument('-fn', '--filter-filename', metavar='#pattern', default=None, help=HELP_ARG_FILTERS, type=valid_pattern)
+
+
+def add_logging_args(par: ArgumentParser) -> None:
     lo = par.add_argument_group(title='logging options')
     lo.add_argument('-v', '--log-level', default=LOGGING_DEFAULT, help=HELP_ARG_LOGGING, type=log_level)
     lo.add_argument('-g', '--disable-log-colors', action=ACTION_STORE_TRUE, help=HELP_ARG_NOCOLORS)
@@ -192,12 +207,13 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     pc.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_CREATOR} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CREATOR_LIST]} ...'
         f'\n{INDENT}{MODULE} {PARSER_TITLE_CREATOR} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CREATOR_DUMP]} ...'
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_CREATOR} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CREATOR_RIP]} ...'
     )
     #  list
     pcl = parsers[PARSER_TITLE_CREATOR_LIST]
     pcl.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_CREATOR} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CREATOR_LIST]}'
-        f' #pattern'
+        f' #[options...] #pattern'
     )
     pclg1 = pcl.add_argument_group(title='options')
     pclg1.add_argument('pattern', help=HELP_ARG_CREATOR_NAME_PATTERN, type=str)
@@ -206,17 +222,18 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     pcd = parsers[PARSER_TITLE_CREATOR_DUMP]
     pcd.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_CREATOR} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CREATOR_DUMP]}'
+        f' #[options...]'
     )
     pcdg1 = pcd.add_argument_group(title='options')
     pcdg1.add_argument('-i', '--indent', metavar='1..4', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
     #  rip
     pcr = parsers[PARSER_TITLE_CREATOR_RIP]
     pcr.usage = (
-        f'\n{INDENT}{MODULE} {PARSER_TITLE_CREATOR} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CREATOR_RIP]}'
-        f' #creator_id'
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_CREATOR} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CREATOR_RIP]}'  # TODO: complete this
+        f' #[options...] #creator_id'
     )
     pcrg1 = pcr.add_argument_group(title='options')
-    pcrg1.add_argument('-i', '--indent', metavar='1..4', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)  # TODO: fix
+    pcrg1.add_argument('-i', '--indent', metavar='1..4', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
     # Posts
     pp = parsers[PARSER_TITLE_POST]
     pp.usage = (
@@ -227,18 +244,24 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     ppl = parsers[PARSER_TITLE_POST_LIST]
     ppl.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_LIST]}'
-        f' #creator_id'
+        f' #[options...] #creator_id'
     )
     pplg1 = ppl.add_argument_group(title='options')
     pplg1.add_argument('creator_id', help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
     #  scan
     pps = parsers[PARSER_TITLE_POST_SCAN]
+    pps.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_ID]} ...'
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_LINK]} ...'
+    )
     #   scan ids
     ppsi = parsers[PARSER_TITLE_POST_SCAN_ID]
     ppsi.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]}'
         f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_ID]}'
-        f' [--creator-id #user_id] #post_id [post_id ...]'
+        f' #[options...] [--creator-id #user_id] #post_id [post_id ...]'
     )
     ppsig1 = ppsi.add_argument_group(title='options')
     ppsig1.add_argument('post_id', metavar='post_id [post_id ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_ID, type=positive_nonzero_int)
@@ -248,7 +271,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     ppsl.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]}'
         f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_LINK]}'
-        f' #URL [URL ...]'
+        f' #[options...] #URL [URL ...]'
     )
     ppslg1 = ppsl.add_argument_group(title='options')
     ppslg1.add_argument('links', metavar='URL [URL ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_URL, type=valid_post_url)
@@ -256,13 +279,14 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     ppr = parsers[PARSER_TITLE_POST_RIP]
     ppr.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP]}'  # TODO: complete this
-        f' #post_id [post_id ...]'
+        f' #[options...] #post_id [post_id ...]'
     )
     pprg1 = ppr.add_argument_group(title='options')
     pprg1.add_argument('links', metavar='URL [URL ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_URL, type=valid_post_url)
 
-    [add_common_args(_) for _ in (pcl, pcd, ppl, ppsi, ppsl)]
-    [add_help(_, _ == parser_root) for _ in (parser_root, pcl, pcd, ppl, pps, ppsi, ppsl)]
+    [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppsi, ppsl, ppr)]
+    [add_logging_args(_) for _ in (parser_root, pc, pp, pcl, pcd, pcr, ppl, pps, ppsi, ppsl, ppr)]
+    [add_help(_, _ == parser_root) for _ in (parser_root, pc, pp, pcl, pcd, pcr, ppl, pps, ppsi, ppsl, ppr)]
     return execute_parser(parser_root, args)
 
 

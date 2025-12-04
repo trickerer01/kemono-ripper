@@ -5,7 +5,8 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #########################################
 #
 # ROADMAP:
-# scan post content
+# scan post content +
+# read links from file
 # download files/attachments
 # config to store values + default
 # downloader of external links (mega, gdrive, etc.)
@@ -18,7 +19,7 @@ from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
 from .api import DownloadMode, Kemono, KemonoAPIError, KemonoOptions
-from .cmdargs import HelpPrintExitException, prepare_arglist
+from .cmdargs import HelpPrintExitException, parse_logging_args, prepare_arglist
 from .config import Config
 from .defs import MIN_PYTHON_VERSION, MIN_PYTHON_VERSION_STR
 from .filters import FileNameFilter, FileSizeFilter
@@ -36,11 +37,10 @@ class ErrorCodes:
     UNKNOWN_ERROR = -255
 
 
-def at_startup() -> None:
+def at_startup(args: Sequence[str]) -> None:
     """Inits logger. Reports python version and run options"""
-    argv_set = set(sys.argv)
-    if argv_set.intersection({'--disable-log-colors', '-g'}):
-        Config.nocolors = True
+    argv_set = set(args)
+    parse_logging_args(args)
     Log.init()
     if argv_set.intersection({'--version', '--help'}):
         return
@@ -108,7 +108,7 @@ async def main_async(args: Sequence[str]) -> int:
 
 
 def main_sync(args: Sequence[str]) -> int:
-    at_startup()
+    at_startup(args)
     try:
         loop = get_running_loop()
     except RuntimeError:  # no current event loop
