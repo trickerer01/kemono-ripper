@@ -38,7 +38,7 @@ class ConfigJSON(TypedDict):
 
 class BaseConfig:
     NAMESPACE_VARS_REMAP = {
-        'file': 'links_file',
+        'file': 'src_file',
         'path': 'dest_base',
         'log_level': 'logging_flags',
         'header': 'extra_headers',
@@ -51,7 +51,7 @@ class BaseConfig:
         self.subcommand_1: str = ''
         self.subcommand_2: str = ''
         self.subcommand_3: str = ''
-        self.subcommand_4: str = ''  # see self.links_file
+        self.subcommand_4: str = ''  # see self.src_file
         self.api_address: APIAddress | None = None
         self.service: APIService | None = None
         self.post_ids: list[int] | None = None
@@ -67,7 +67,7 @@ class BaseConfig:
         # new
         self.filter_filesize: NumRange | None = None
         self.filter_filename: str | None = None
-        self.links_file: pathlib.Path | None = None  # TODO: post scan file, post rip file
+        self.src_file: pathlib.Path | None = None
         self.max_jobs: int | None = None
         # common
         self.dest_base: pathlib.Path | None = None

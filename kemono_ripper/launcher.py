@@ -9,16 +9,20 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 import json
 import pathlib
 import sys
-from collections.abc import Callable, Coroutine
+from argparse import ArgumentError
+from collections.abc import Callable, Coroutine, Iterable
 
 from bs4 import BeautifulSoup
 
 from .api import Creator, Kemono, ScannedPost, ScannedPostPost
 from .config import Config
-from .defs import CREATORS_NAME_DEFAULT, UTF8
+from .defs import CREATORS_NAME_DEFAULT, UTF8, PostPageScanResult
 from .logger import Log
+from .util import HTTP_PREFIX, HTTPS_PREFIX
 
 __all__ = ('launch',)
+
+from .validators import valid_post_url
 
 
 def _process_scan_results(kemono: Kemono, results) -> None:
@@ -39,9 +43,41 @@ def _process_scan_results(kemono: Kemono, results) -> None:
             refs: list[str] = [str(_['href']) for _ in bs.find_all('a')]
             refs.extend(f'https://{kemono.api_address}{_["src"]!s}' for _ in bs.find_all('img'))
             links += ('\n' if links and refs else '') + '\n '.join(f'link_{i:d}: {ref}' for i, ref in enumerate(refs))
-        post_str = f'[{user}:{pid}] {title}:\n{content}\nlinks:\n {links}'
+        post_str = f'[{user}:{pid}] {title}:\n\'{content}\'\nlinks:\n {links}\n'
         listing.append(post_str)
     Log.info('\n'.join(('\n', *listing)) or '\nNothing')
+
+
+def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageScanResult]:
+    links: list[PostPageScanResult] = []
+    for index, line in enumerate(contents):
+        line = line.strip(' \n\ufeff').replace(HTTP_PREFIX, HTTPS_PREFIX)
+        if not line:
+            continue
+        parts = tuple(line.split(' ', maxsplit=1))
+        if len(parts) == 1 and parts[0][0].isnumeric():
+            parts = tuple(parts[0].split(':', maxsplit=1))
+            if len(parts) == 1:
+                parts = tuple(parts[0].split('/', maxsplit=1))
+        if len(parts) == 1:
+            single_part = parts[0]
+            # single post id
+            if single_part.isnumeric():
+                links.append(PostPageScanResult(post_id=int(single_part), creator_id=0, service=kemono.api_service))
+            # full url
+            else:
+                try:
+                    scanned_post = valid_post_url(single_part, False)
+                    links.append(scanned_post)
+                except ArgumentError:
+                    raise ValueError(f'Unable to parse post url from \'{line}\' at line {index + 1:d}')
+        else:  # if len(parts) == 2
+            # creator id + post id
+            creator_id, post_id = parts
+            assert creator_id.isnumeric(), f'Unable to parse creator info from C+P \'{line}\' at line {index + 1:d}'
+            assert post_id.isnumeric(), f'Unable to parse post info from C+P \'{line}\' at line {index + 1:d}'
+            links.append(PostPageScanResult(post_id=int(post_id), creator_id=int(creator_id), service=kemono.api_service))
+    return links
 
 
 async def creator_dump(kemono: Kemono) -> None:
@@ -82,18 +118,23 @@ async def post_scan_id(kemono: Kemono) -> None:
     _process_scan_results(kemono, results)
 
 
-async def post_scan_link(kemono: Kemono) -> None:
+async def post_scan_link(kemono: Kemono, *, links: list[PostPageScanResult] | None = None) -> None:
     results: list[ScannedPost] = []
-    for link in Config.links:
-        pid, cid, service4 = link
-        post = await kemono.scan_post(pid, cid, service4)
+    for link in links or Config.links:
+        post = await kemono.scan_post(link.post_id, link.creator_id, link.service)
         results.append(post)
     _process_scan_results(kemono, results)
 
 
+async def post_scan_file(kemono: Kemono) -> None:
+    with open(Config.src_file, 'rt', encoding=UTF8) as infile_posts:
+        post_links = _parse_posts_file(kemono, infile_posts)
+    return await post_scan_link(kemono, links=post_links)
+
+
 def _config_write(config_path: pathlib.Path) -> None:
     Log.info(f'Writing configuration to {config_path.as_posix()}...')
-    with open(config_path, 'wt', encoding=UTF8) as outfile_settings:
+    with open(config_path, 'wt', encoding=UTF8, newline='\n') as outfile_settings:
         json.dump(Config.to_json(), outfile_settings, ensure_ascii=False, indent=4)
         outfile_settings.write('\n')
     Log.info('Done')
@@ -125,6 +166,7 @@ async def launch(kemono: Kemono) -> None:
         'post list': post_list,
         'post scan id': post_scan_id,
         'post scan link': post_scan_link,
+        'post scan file': post_scan_file,
         'config create': config_create,
         'config modify': config_modify,
     }

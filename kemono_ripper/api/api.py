@@ -67,6 +67,10 @@ class Kemono:
     def api_address(self) -> str:
         return self._api_address
 
+    @property
+    def api_service(self) -> APIService:
+        return self._service
+
     def _make_session(self) -> ClientSession:
         if self._session is not None:
             raise ValidationError('make_session should only be called once!')

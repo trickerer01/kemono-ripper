@@ -22,7 +22,6 @@ POSTS_PER_PAGE = 50
 
 UTF8 = 'utf-8'
 LATIN1 = 'latin-1'
-HTTPS_PREFIX = 'https://'
 
 
 class DownloadMode(str, Enum):

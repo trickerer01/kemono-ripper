@@ -6,7 +6,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 # ROADMAP:
 # scan post content +
-# read links from file
+# read links from file +
 # download files/attachments
 # config to store values, default +
 # downloader of external links (mega, gdrive, etc.)

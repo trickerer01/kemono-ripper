@@ -128,18 +128,22 @@ def valid_url(url_str: str) -> URL:
         raise ArgumentError
 
 
-def valid_post_url(url_str: str) -> PostPageScanResult:
+def valid_post_url(url_str: str, absolute=True) -> PostPageScanResult:
     try:
         url = URL(url_str)
-        assert url.is_absolute()
-        assert url.host in APIAddress.__args__
+        if absolute:
+            assert url.is_absolute()
+        if url.is_absolute():
+            assert url.host in APIAddress.__args__
+        else:
+            assert url_str.startswith(APIAddress.__args__)
         post_page_match = re_post_page.search(str(url))
         service = post_page_match.group(1)
         cid = positive_int(post_page_match.group(2))
         pid = positive_int(post_page_match.group(3))
-        return pid, cid, service
+        return PostPageScanResult(post_id=pid, creator_id=cid, service=service)
     except Exception:
-        raise ArgumentError
+        raise ArgumentError(None, '')
 
 
 def log_level(level: str) -> int:

@@ -28,6 +28,7 @@ from .defs import (
     HELP_ARG_MAXJOBS,
     HELP_ARG_NOCOLORS,
     HELP_ARG_PATH,
+    HELP_ARG_POST_FILE,
     HELP_ARG_POST_ID,
     HELP_ARG_POST_URL,
     HELP_ARG_PROXY,
@@ -45,6 +46,7 @@ from .validators import (
     log_level,
     positive_int,
     positive_nonzero_int,
+    valid_file_path,
     valid_folder_path,
     valid_indent,
     valid_kwarg,
@@ -79,7 +81,8 @@ PARSER_TITLE_POST = 'post'
 PARSER_TITLE_POST_LIST = 'plist'
 PARSER_TITLE_POST_SCAN = 'pscan'
 PARSER_TITLE_POST_SCAN_ID = 'pscan_id'
-PARSER_TITLE_POST_SCAN_LINK = 'pscan_link'
+PARSER_TITLE_POST_SCAN_URL = 'pscan_url'
+PARSER_TITLE_POST_SCAN_FILE = 'pscan_file'
 PARSER_TITLE_POST_RIP = 'prip'
 PARSER_TITLE_CONFIG = 'config'
 PARSER_TITLE_CONFIG_CREATE = 'cfcreate'
@@ -92,7 +95,8 @@ PARSER_TITLE_NAMES_REMAP: dict[str, str] = {
     PARSER_TITLE_POST_LIST: 'list',
     PARSER_TITLE_POST_SCAN: 'scan',
     PARSER_TITLE_POST_SCAN_ID: 'id',
-    PARSER_TITLE_POST_SCAN_LINK: 'link',
+    PARSER_TITLE_POST_SCAN_URL: 'url',
+    PARSER_TITLE_POST_SCAN_FILE: 'file',
     PARSER_TITLE_POST_RIP: 'rip',
     PARSER_TITLE_CONFIG_CREATE: 'create',
     PARSER_TITLE_CONFIG_MODIFY: 'modify',
@@ -157,10 +161,11 @@ def create_parsers() -> dict[str, ArgumentParser]:
     subs_posts = create_subparser(par_posts, 'post', 'subcommand_2')
     _ = create_parser(subs_posts, PARSER_TITLE_POST_LIST, 'List creator posts')
 
-    par_post_scan = create_parser(subs_posts, PARSER_TITLE_POST_SCAN, 'Scan posts')
-    subs_posts_scan = create_subparser(par_post_scan, 'scan by', 'subcommand_3')
+    par_post_scan = create_parser(subs_posts, PARSER_TITLE_POST_SCAN, 'Scan post contents')
+    subs_posts_scan = create_subparser(par_post_scan, 'inputs', 'subcommand_3')
     _ = create_parser(subs_posts_scan, PARSER_TITLE_POST_SCAN_ID, 'Scan posts by post id')
-    _ = create_parser(subs_posts_scan, PARSER_TITLE_POST_SCAN_LINK, 'Scan posts by URL')
+    _ = create_parser(subs_posts_scan, PARSER_TITLE_POST_SCAN_URL, 'Scan posts by URL')
+    _ = create_parser(subs_posts_scan, PARSER_TITLE_POST_SCAN_FILE, 'Read scan targets from text file')
 
     _ = create_parser(subs_posts, PARSER_TITLE_POST_RIP, 'Scan post content and download everything')
 
@@ -284,7 +289,9 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]}'
         f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_ID]} ...'
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]}'
-        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_LINK]} ...'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_URL]} ...'
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_FILE]} ...'
     )
     #   scan ids
     ppsi = parsers[PARSER_TITLE_POST_SCAN_ID]
@@ -296,15 +303,24 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     ppsig1 = ppsi.add_argument_group(title='options')
     ppsig1.add_argument('post_id', metavar='post_id [post_id ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_ID, type=positive_nonzero_int)
     ppsig1.add_argument('--creator-id', nargs=OPTIONAL, default=0, help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
-    #   scan URLs
-    ppsl = parsers[PARSER_TITLE_POST_SCAN_LINK]
-    ppsl.usage = (
+    #   scan URL
+    ppsu = parsers[PARSER_TITLE_POST_SCAN_URL]
+    ppsu.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]}'
-        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_LINK]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_URL]}'
         f' #[options...] #URL [URL ...]'
     )
-    ppslg1 = ppsl.add_argument_group(title='options')
-    ppslg1.add_argument('links', metavar='URL [URL ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_URL, type=valid_post_url)
+    ppsug1 = ppsu.add_argument_group(title='options')
+    ppsug1.add_argument('links', metavar='URL [URL ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_URL, type=valid_post_url)
+    #   scan file
+    ppsf = parsers[PARSER_TITLE_POST_SCAN_FILE]
+    ppsf.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_FILE]}'
+        f' #[options...] #file'
+    )
+    ppsfg1 = ppsf.add_argument_group(title='options')
+    ppsfg1.add_argument('file', help=HELP_ARG_POST_FILE, type=valid_file_path)
     #  rip
     ppr = parsers[PARSER_TITLE_POST_RIP]
     # ppr.usage = (
@@ -314,7 +330,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     # pprg1 = ppr.add_argument_group(title='options')
     # pprg1.add_argument('links', metavar='URL [URL ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_URL, type=valid_post_url)
 
-    [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppsi, ppsl, ppr, pcfc, pcfm)]
+    [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppsi, ppsu, ppsf, ppr, pcfc, pcfm)]
     [add_logging_args(_) for _ in parsers.values()]
     [add_help(_, _ == parser_root) for _ in parsers.values()]
     return execute_parser(parser_root, args)
@@ -325,7 +341,8 @@ def prepare_arglist(args: Sequence[str]) -> None:
     for pp in vars(parsed):
         param = Config.NAMESPACE_VARS_REMAP.get(pp, pp)
         if param in vars(Config):
-            setattr(Config, param, getattr(parsed, pp, getattr(Config, param)))
+            if not getattr(Config, param):
+                setattr(Config, param, getattr(parsed, pp, getattr(Config, param)))
         else:
             Log.error(f'Argument list param {param} was not consumed!')
 

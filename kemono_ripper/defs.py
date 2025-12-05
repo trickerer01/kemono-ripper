@@ -7,7 +7,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 
 from enum import IntEnum
-from typing import NamedTuple, TypeAlias
+from typing import NamedTuple
 
 from .api import APIService
 
@@ -86,8 +86,13 @@ HELP_ARG_INDENT = f'Saved file indentation. Default is \'{JSON_INDENT_DEFAULT:d}
 HELP_ARG_POST_ID = 'Post id as seen in web page address (integer)'
 HELP_ARG_CREATOR_ID = 'Creator id as seen in web page address (integer)'
 HELP_ARG_POST_URL = 'Full url to post page'
+HELP_ARG_POST_FILE = 'Full path to target text file'
 
-PostPageScanResult: TypeAlias = tuple[int, int, APIService]
+
+class PostPageScanResult(NamedTuple):
+    post_id: int
+    creator_id: int
+    service: APIService
 
 
 class NumRange(NamedTuple):
