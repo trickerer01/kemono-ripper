@@ -11,6 +11,7 @@ from __future__ import annotations
 import pathlib
 import random
 from asyncio import sleep
+from collections.abc import Iterable
 
 from aiohttp import ClientConnectorError, ClientResponse, ClientResponseError, ClientSession, ClientTimeout, TCPConnector
 from aiohttp_socks import ProxyConnector
@@ -24,7 +25,7 @@ from .filters import Filter
 from .logging import Log, set_logger
 from .options import KemonoOptions
 from .request_queue import RequestQueue
-from .types import APIResponse, APIService, Creator, FreePost, ListedPost, ScannedPost
+from .types import APIAddress, APIResponse, APIService, Creator, FreePost, ListedPost, PostPageScanResult, ScannedPost
 
 __all__ = ('Kemono',)
 
@@ -64,7 +65,7 @@ class Kemono:
             await self._session.close()
 
     @property
-    def api_address(self) -> str:
+    def api_address(self) -> APIAddress:
         return self._api_address
 
     @property
@@ -136,6 +137,23 @@ class Kemono:
     async def _download(self) -> pathlib.Path:
         return self._dest_base
 
+    async def _scan_post(self, link: PostPageScanResult) -> ScannedPost:
+        assert link.service
+        assert link.post_id
+        creator_id = link.creator_id
+        if not creator_id:
+            post: FreePost = await self._query_api(GetFreePostAction(self._api_address, link.service, link.post_id))
+            creator_id = int(post['artist_id'])
+        post: ScannedPost = await self._query_api(GetCreatorPostAction(self._api_address, link.service, creator_id, link.post_id))
+        return post
+
+    async def scan_posts(self, links: Iterable[PostPageScanResult]) -> list[ScannedPost]:
+        scanned_posts: list[ScannedPost] = []
+        for link in links:
+            scanned_post = await self._scan_post(link)
+            scanned_posts.append(scanned_post)
+        return scanned_posts
+
     async def list_creators(self) -> list[Creator]:
         creators: list[Creator] = await self._query_api(GetCreatorsAction(self._api_address))
         return creators
@@ -148,14 +166,6 @@ class Kemono:
             all_posts.extend(posts)
             offset += POSTS_PER_PAGE
         return all_posts
-
-    async def scan_post(self, post_id: int, creator_id: int, service: APIService | None = None) -> ScannedPost:
-        service = service or self._service
-        if not creator_id:
-            post: FreePost = await self._query_api(GetFreePostAction(self._api_address, service, post_id))
-            creator_id = int(post['artist_id'])
-        post: ScannedPost = await self._query_api(GetCreatorPostAction(self._api_address, service, creator_id, post_id))
-        return post
 
 #
 #

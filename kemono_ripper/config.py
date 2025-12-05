@@ -15,8 +15,8 @@ from aiohttp import ClientTimeout
 from .defs import CONFIG_NAME_DEFAULT, CONNECT_TIMEOUT_SOCKET_READ
 
 if False is True:  # for hinting only
-    from .api import APIAddress, APIService  # noqa: I001
-    from .defs import NumRange, PostPageScanResult
+    from .api import APIAddress, APIService, PostPageScanResult  # noqa: I001
+    from .defs import NumRange
 
 __all__ = ('Config',)
 

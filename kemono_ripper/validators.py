@@ -14,19 +14,18 @@ from ipaddress import IPv4Address
 from aiohttp import ClientTimeout
 from yarl import URL
 
-from .api import APIAddress, APIService
+from .api import APIAddress, APIService, PostPageScanResult
 from .defs import (
     CONNECT_TIMEOUT_BASE,
     CONNECT_TIMEOUT_SOCKET_READ,
     LOGGING_FLAGS,
     MAX_JOBS_MAX,
     NumRange,
-    PostPageScanResult,
 )
 from .logger import Log
 from .util import build_regex_from_pattern
 
-re_post_page = re.compile(fr'/({"|".join(APIService.__args__)})(?:/user/(\d+))?/post/(\d+)')
+re_post_page = re.compile(fr'({"|".join(APIAddress.__args__)})/({"|".join(APIService.__args__)})(?:/user/(\d+))?/post/(\d+)')
 
 
 def valid_kwarg(kwarg: str) -> tuple[str, str]:
@@ -138,10 +137,11 @@ def valid_post_url(url_str: str, absolute=True) -> PostPageScanResult:
         else:
             assert url_str.startswith(APIAddress.__args__)
         post_page_match = re_post_page.search(str(url))
-        service = post_page_match.group(1)
-        cid = positive_int(post_page_match.group(2))
-        pid = positive_int(post_page_match.group(3))
-        return PostPageScanResult(post_id=pid, creator_id=cid, service=service)
+        api_address = post_page_match.group(1)
+        service = post_page_match.group(2)
+        cid = positive_int(post_page_match.group(3))
+        pid = positive_int(post_page_match.group(4))
+        return PostPageScanResult(pid, cid, service, api_address)
     except Exception:
         raise ArgumentError(None, '')
 

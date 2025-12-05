@@ -9,8 +9,6 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 from enum import IntEnum
 from typing import NamedTuple
 
-from .api import APIService
-
 MIN_PYTHON_VERSION = (3, 10)
 MIN_PYTHON_VERSION_STR = f'{MIN_PYTHON_VERSION[0]:d}.{MIN_PYTHON_VERSION[1]:d}'
 
@@ -87,12 +85,6 @@ HELP_ARG_POST_ID = 'Post id as seen in web page address (integer)'
 HELP_ARG_CREATOR_ID = 'Creator id as seen in web page address (integer)'
 HELP_ARG_POST_URL = 'Full url to post page'
 HELP_ARG_POST_FILE = 'Full path to target text file'
-
-
-class PostPageScanResult(NamedTuple):
-    post_id: int
-    creator_id: int
-    service: APIService
 
 
 class NumRange(NamedTuple):

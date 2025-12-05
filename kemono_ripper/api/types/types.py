@@ -6,9 +6,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 #
 
-from __future__ import annotations
-
-from typing import Literal, TypeAlias, TypedDict
+from typing import Literal, NamedTuple, TypeAlias, TypedDict
 
 APIEntrance = 'api/v1'
 APIMethod: TypeAlias = Literal['GET', 'POST']
@@ -16,6 +14,13 @@ APIAddress: TypeAlias = Literal['kemono.cr', 'kemono.su', 'kemono.party', 'coome
 APIService: TypeAlias = Literal['patreon', 'boosty', 'subscribestar', 'fantia', 'gumroad', 'fanbox', 'discord', 'dlsite']
 APIEndpointFormat: TypeAlias = Literal['{}/user/{}/posts', '{}/user/{}/post/{}', '{}/post/{}']
 APIEndpoint: TypeAlias = Literal['creators', APIEndpointFormat]
+
+
+class PostPageScanResult(NamedTuple):
+    post_id: int
+    creator_id: int
+    service: APIService
+    api_address: APIAddress
 
 
 # Validated

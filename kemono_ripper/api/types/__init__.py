@@ -14,6 +14,7 @@ from .types import (
     ListedPost,
     ListedPostAttachment,
     ListedPostFile,
+    PostPageScanResult,
     ScannedPost,
     ScannedPostPost,
 )
@@ -34,6 +35,7 @@ __all__ = (
     'ListedPost',
     'ListedPostAttachment',
     'ListedPostFile',
+    'PostPageScanResult',
     'ScannedPost',
     'ScannedPostPost',
 )

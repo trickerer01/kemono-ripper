@@ -19,6 +19,7 @@ from .types import (
     ListedPost,
     ListedPostAttachment,
     ListedPostFile,
+    PostPageScanResult,
     ScannedPost,
     ScannedPostPost,
 )
@@ -50,6 +51,7 @@ __all__ = (
     'ListedPostFile',
     'Mem',
     'NumRange',
+    'PostPageScanResult',
     'RequestQueue',
     'ScannedPost',
     'ScannedPostPost',
