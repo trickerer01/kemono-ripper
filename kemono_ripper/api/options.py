@@ -7,7 +7,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 
 import pathlib
-from typing import TypedDict
+from typing import NamedTuple
 
 from aiohttp import ClientTimeout
 
@@ -17,7 +17,7 @@ from .logging import Logger
 from .types import APIAddress, APIService
 
 
-class KemonoOptions(TypedDict):
+class KemonoOptions(NamedTuple):
     # for local
     dest_base: pathlib.Path
     retries: int

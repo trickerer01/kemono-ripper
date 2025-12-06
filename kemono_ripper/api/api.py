@@ -53,23 +53,23 @@ __all__ = ('Kemono',)
 class Kemono:
     def __init__(self, options: KemonoOptions) -> None:
         # globals
-        set_logger(options['logger'])
+        set_logger(options.logger)
         # locals
         self._session: ClientSession | None = None
         self._user_agent: str = ''
         # options
-        self._dest_base: pathlib.Path = options['dest_base']
-        self._retries: int = options['retries']
-        self._max_jobs = options['max_jobs']
-        self._api_address = options['api_address']
-        self._service = options['service']
-        self._timeout: ClientTimeout = options['timeout']
-        self._nodelay: bool = options['nodelay']
-        self._proxy: str = options['proxy']
-        self._extra_headers: list[tuple[str, str]] = options['extra_headers']
-        self._extra_cookies: list[tuple[str, str]] = options['extra_cookies']
-        self._filters: tuple[Filter, ...] = options['filters']
-        self._download_mode: DownloadMode = options['download_mode']
+        self._dest_base: pathlib.Path = options.dest_base
+        self._retries: int = options.retries
+        self._max_jobs = options.max_jobs
+        self._api_address = options.api_address
+        self._service = options.service
+        self._timeout: ClientTimeout = options.timeout
+        self._nodelay: bool = options.nodelay
+        self._proxy: str = options.proxy
+        self._extra_headers: list[tuple[str, str]] = options.extra_headers
+        self._extra_cookies: list[tuple[str, str]] = options.extra_cookies
+        self._filters: tuple[Filter, ...] = options.filters
+        self._download_mode: DownloadMode = options.download_mode
         # ensure correct args
         assert Log, 'Logger is not initialized!'
         assert next(reversed(self._dest_base.parents)).is_dir(), f'Inavlid base destination folder \'{self._dest_base!s}\'!'
