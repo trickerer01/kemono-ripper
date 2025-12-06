@@ -26,6 +26,7 @@ class GetCreatorPostsAction(APIFetchAction):
 
     async def process_response_content(self, content: bytes) -> list[ListedPost]:
         json_ = json.loads(content)
+        self.assert_valid_json_result(json_)
         return json_
 
 
@@ -43,6 +44,7 @@ class GetFreePostAction(APIFetchAction):
 
     async def process_response_content(self, content: bytes) -> FreePost:
         json_ = json.loads(content)
+        self.assert_valid_json_result(json_)
         return json_
 
 
@@ -60,6 +62,7 @@ class GetCreatorPostAction(APIFetchAction):
 
     async def process_response_content(self, content: bytes) -> ScannedPost:
         json_ = json.loads(content)
+        self.assert_valid_json_result(json_)
         return json_
 
 #

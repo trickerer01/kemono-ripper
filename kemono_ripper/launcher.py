@@ -137,15 +137,15 @@ async def post_scan_id(kemono: Kemono, *, download=False) -> None:
     await _process_scan_results(kemono, results, download=download)
 
 
-async def post_scan_links(kemono: Kemono, *, links: list[PostPageScanResult] | None = None, download=False) -> None:
-    results: list[ScannedPost] = await kemono.scan_posts(links)
+async def post_scan_url(kemono: Kemono, *, links: list[PostPageScanResult] | None = None, download=False) -> None:
+    results: list[ScannedPost] = await kemono.scan_posts(links or Config.links)
     await _process_scan_results(kemono, results, download=download)
 
 
 async def post_scan_file(kemono: Kemono, *, download=False) -> None:
     with open(Config.src_file, 'rt', encoding=UTF8) as infile_posts:
         post_links = _parse_posts_file(kemono, infile_posts)
-    return await post_scan_links(kemono, links=post_links, download=download)
+    return await post_scan_url(kemono, links=post_links, download=download)
 
 
 async def post_rip_id(kemono: Kemono) -> None:
@@ -153,7 +153,7 @@ async def post_rip_id(kemono: Kemono) -> None:
 
 
 async def post_rip_links(kemono: Kemono, *, links: list[PostPageScanResult] | None = None) -> None:
-    return await post_scan_links(kemono, links=links, download=True)
+    return await post_scan_url(kemono, links=links, download=True)
 
 
 async def post_rip_file(kemono: Kemono) -> None:
@@ -194,7 +194,7 @@ async def launch(kemono: Kemono) -> None:
         'creator rip': creator_rip,
         'post list': post_list,
         'post scan id': post_scan_id,
-        'post scan link': post_scan_links,
+        'post scan url': post_scan_url,
         'post scan file': post_scan_file,
         'post rip id': post_rip_id,
         'post rip link': post_rip_links,

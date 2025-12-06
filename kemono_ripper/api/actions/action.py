@@ -52,6 +52,9 @@ class APIFetchAction(APIAction):
     @abstractmethod
     async def process_response_content(self, content: bytes) -> APIResponse: ...
 
+    def assert_valid_json_result(self, json_: APIResponse) -> None:
+        assert json_ != ['error'], f'Invalid json \'{json_!s}\' was returned from request {self!s}'
+
     def as_api_request_data(self) -> APIRequestData:
         return {'method': self._method, 'url': self.get_url(), 'params': self._request_data}
 

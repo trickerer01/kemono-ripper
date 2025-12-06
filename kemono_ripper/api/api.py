@@ -134,8 +134,8 @@ class Kemono:
                 async with await self._wrap_request(action, try_num) as r:
                     if r.status == 404:
                         Log.error(f'Got 404 for {action.get_url().human_repr()}...!')
-                        try_num = self._retries
-                        raise RequestError(KemonoErrorCodes.KEMONO_ERROR_CODE_GENERIC)
+                        # try_num = self._retries
+                        raise RequestError(KemonoErrorCodes.ENOTFOUND)
                     r.raise_for_status()
                     response_content = await r.content.read()
                     result = await action.process_response_content(response_content)
@@ -169,8 +169,8 @@ class Kemono:
                 async with await self._wrap_request(action, try_num=try_num, session=self._session, **hkwargs) as r:
                     if r.status == 404:
                         Log.error(f'Got 404 for {action.get_url().human_repr()}...!')
-                        try_num = self._retries
-                        raise RequestError(KemonoErrorCodes.KEMONO_ERROR_CODE_GENERIC)
+                        # try_num = self._retries
+                        raise RequestError(KemonoErrorCodes.ENOTFOUND)
                     r.raise_for_status()
                     content_len: int = r.content_length or 0
                     assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url().human_repr()}! Retrying...'

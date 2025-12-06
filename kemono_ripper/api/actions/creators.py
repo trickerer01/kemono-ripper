@@ -26,6 +26,7 @@ class GetCreatorsAction(APIFetchAction):
 
     async def process_response_content(self, content: bytes) -> list[Creator]:
         json_ = json.loads(content)
+        self.assert_valid_json_result(json_)
         return json_
 
 #
