@@ -8,7 +8,6 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 from __future__ import annotations
 
-import json
 import pathlib
 from asyncio import Lock as AsyncLock
 from asyncio.queues import Queue as AsyncQueue
@@ -21,9 +20,8 @@ from typing import Final, Literal, NamedTuple
 from bs4 import BeautifulSoup
 from yarl import URL
 
-from .api import APIAddress, Creator, Kemono, KemonoErrorCodes, Mem, ScannedPost, ScannedPostPost
+from .api import APIAddress, Kemono, KemonoErrorCodes, Mem, ScannedPost, ScannedPostPost
 from .config import Config
-from .defs import CREATORS_NAME_DEFAULT, UTF8
 from .logger import Log
 from .util import sanitize_filename
 
@@ -95,7 +93,7 @@ class PostLinkDownloadInfo(NamedTuple):
 
 
 class PostDownloadInfo(NamedTuple):
-    post_id: int
+    post_id: str
     creator_id: int
     creator_name: str
     original_post: ScannedPost
@@ -110,15 +108,15 @@ class PostDownloadInfo(NamedTuple):
 class KemonoDownloader:
     def __init__(self, kemono: Kemono, posts: Sequence[ScannedPost]) -> None:
         self._kemono: Final[Kemono] = kemono
-        self._post_info: Final[dict[int, PostDownloadInfo]] = {}
+        self._post_info: Final[dict[str, PostDownloadInfo]] = {}
 
         self._queue_produce: deque[PostDownloadInfo] = deque()
         self._queue_consume: AsyncQueue[PostDownloadInfo] = AsyncQueue(Config.max_jobs)
 
-        self._downloaded_count: dict[int, int] = defaultdict(int)
-        self._already_exist_count: dict[int, int] = defaultdict(int)
-        self._skipped_count: dict[int, int] = defaultdict(int)
-        self._404_count: dict[int, int] = defaultdict(int)
+        self._downloaded_count: dict[str, int] = defaultdict(int)
+        self._already_exist_count: dict[str, int] = defaultdict(int)
+        self._skipped_count: dict[str, int] = defaultdict(int)
+        self._404_count: dict[str, int] = defaultdict(int)
 
         self._downloads_active: dict[PostDownloadInfo, list[PostLinkDownloadInfo]] = defaultdict(list[PostLinkDownloadInfo])
         self._writes_active: dict[PostDownloadInfo, list[PostLinkDownloadInfo]] = defaultdict(list[PostLinkDownloadInfo])
@@ -132,7 +130,6 @@ class KemonoDownloader:
         self._queue_produce.extend(post for _, post in self._post_info.items())
 
         self._orig_count: Final[int] = len(posts)
-        self._minmax_id: Final[tuple[int, int]] = self._get_min_max_post_ids()
 
     async def __aenter__(self) -> KemonoDownloader:
         return self
@@ -143,7 +140,7 @@ class KemonoDownloader:
     async def _at_post_link_start(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
         async with self._active_downloads_lock:
             self._downloads_active[post].append(plink)
-        Log.trace(f'[queue] post {post.post_id:d} \'{post.original_post["post"]["title"]}\' added to active')
+        Log.trace(f'[queue] [{post.creator_id:d}:{post.post_id}] \'{plink.name}\' added to active')
 
     async def _at_post_link_finish(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
         async with self._active_downloads_lock:
@@ -160,12 +157,13 @@ class KemonoDownloader:
             elif result == DownloadResult.SUCCESS:
                 self._downloaded_count[post.post_id] += 1
 
-    # noinspection PyMethodMayBeStatic
     async def _at_post_start(self, post: PostDownloadInfo) -> None:
+        async with self._active_downloads_lock:
+            self._downloads_active[post] = []
         Log.info(f'Processing post [{post.creator_id}:{post.post_id}] \'{post.original_post["post"]["title"]}\'...')
 
     async def _at_post_finish(self, post: PostDownloadInfo) -> None:
-        pid = f'[{post.creator_id:d}:{post.post_id:d}] \'{post.original_post["post"]["title"]}\''
+        pid = f'[{post.creator_id:d}:{post.post_id}] \'{post.original_post["post"]["title"]}\''
         async with self._active_downloads_lock:
             assert post in self._downloads_active
             results = [plink.status.result for _, plink in post.links.items()]
@@ -182,11 +180,11 @@ class KemonoDownloader:
                          f' {skipped:d} skipped, {filtered:d} filtered out, {exists:d} already exists, {fail_404:d} not found,'
                          f' {unsupported:d} unsupported')
             else:
-                links_str = '\n'.join(('\n', *(plink.url.human_repr() for _, plink in post.links.items())))
-                Log.info(f'[queue] post {pid}: None of {len(post.links):d} are supported: {links_str}')
+                links_str = '\n'.join(plink.url.human_repr() for _, plink in post.links.items())
+                Log.info(f'[queue] post {pid}: None of {len(post.links):d} links are supported:\n{links_str}')
 
             self._downloads_active.pop(post)
-            Log.trace(f'[queue] post {post.post_id:d} \'{post.original_post["post"]["title"]}\' removed from active')
+            Log.trace(f'[queue] post {post.post_id} \'{post.original_post["post"]["title"]}\' removed from active')
 
     async def _download_post(self, post: PostDownloadInfo) -> None:
         post.status.state = State.DOWNLOADING
@@ -200,7 +198,7 @@ class KemonoDownloader:
         plink_id = f'[{post.creator_id}:{post.post_id}] \'{plink.name}\''
         Log.info(f'{plink_id} Processing {plink.url.human_repr()} => {plink.local_path}')
         plink.status.state = State.SCANNING
-        supported = '.'.join(plink.url.host.split('.')[-2:]) in APIAddress.__args__
+        supported = self.is_link_supported(plink.url)
         # if not supported: # TODO: mega downloader, gdrive downloader
         if not supported:
             Log.warn(f'{plink_id}: Skipping unsupported link format {plink.url.human_repr()}...')
@@ -261,7 +259,7 @@ class KemonoDownloader:
         if len(self._writes_active) > 0:
             Log.fatal(f'active writes count is still at {len(self._writes_active):d} != 0!')
         if len(self._failed_items) > 0:
-            fitems = ['\n'.join([f'{post.creator_id:d}:{post.post_id:d} {plink.url.human_repr()} => {plink.local_path}'
+            fitems = ['\n'.join([f'{post.creator_id:d}:{post.post_id} {plink.url.human_repr()} => {plink.local_path}'
                                  for plink in plinks]) for post, plinks in self._failed_items.items()]
             Log.fatal(f'\nFailed items:\n{newline.join(fitems)}')
 
@@ -302,20 +300,8 @@ class KemonoDownloader:
 
     def _gather_post_download_info(self, scanned_posts: Iterable[ScannedPost]) -> None:
         def next_file_name(name_base: str) -> str:
-            nonlocal name_idx
-            name_idx += 1
-            return f'{name_idx:02d}_{name_base}'
-
-        name_idx = 0
-
-        creators: list[Creator] = []
-        creators_file_path = Config.dest_base / CREATORS_NAME_DEFAULT
-        if creators_file_path.is_file():
-            Log.info(f'Creators cache found at {self.local_path(creators_file_path, 2)}...')
-            with open(creators_file_path, 'rt', encoding=UTF8) as infile_creators:
-                creators.extend(json.load(infile_creators))
-        else:
-            Log.info(f'Creators cache NOT found at {self.local_path(creators_file_path, 2)}...')
+            next_file_name.name_idx = getattr(next_file_name, 'name_idx', 0) + 1
+            return f'{next_file_name.name_idx:02d}_{name_base}'
 
         post_strings: list[str] = []
         for spost in scanned_posts:
@@ -339,15 +325,21 @@ class KemonoDownloader:
 
             content = post['content']
             if content and len(content) >= 40:
-                bs = BeautifulSoup(content, 'html.parser')
                 link_idx = len(links_dict)
+                bs = BeautifulSoup(content, 'html.parser')
                 for tag_type, tag_name in SUPPORTED_TAGS:
                     bs_tags = bs.find_all(tag_type)
                     for bs_tag in bs_tags:
                         url = URL(bs_tag[tag_name])
                         link = url if url.absolute else URL(f'https://{self._kemono.api_address}').join(url)
-                        links_dict.update({link: f'link_{link_idx:d}'})
-                        link_idx += 1
+                        link_purged = link.with_query('')
+                        if link_purged not in links_dict:
+                            if self.is_link_supported(link):
+                                link_name = self.extract_link_name(link)
+                            else:
+                                link_idx += 1
+                                link_name = f'unk_{link_idx:02d}'
+                            links_dict.update({link_purged: link_name})
 
             if file := post['file']:
                 flink = URL(f'https://{self._kemono.api_address}').with_path(file['path'])
@@ -359,28 +351,24 @@ class KemonoDownloader:
                 lpath = Config.dest_base / user / pid / sanitize_filename(next_file_name(name))
                 links[name] = PostLinkDownloadInfo(name=name, url=link_full, path=lpath)
 
-            creator_name = ([_ for _ in creators if _['id'] == user] or [Creator(
-                id=user, name=user, service=self._kemono.api_service, indexed=0, updated=0, favorited=0)])[0]['name']
-            self._post_info[int(pid)] = PostDownloadInfo(
-                post_id=int(pid), creator_id=int(user), creator_name=creator_name, original_post=spost, links=links)
+            self._post_info[pid] = PostDownloadInfo(pid, int(user), user, spost, links)
 
-            Log.trace(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links...')
-            post_strings.append(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links...')
+            links_str = '\n'.join(f' {pldi.url.human_repr()} => {pldi.local_path}' for title, pldi in links.items())
+            post_strings.append(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links:\n{links_str}')
 
         Log.info('\n'.join(post_strings))
-
-    def _get_min_max_post_ids(self) -> tuple[int, int]:
-        min_id, max_id = 10**18, 0
-        for id_ in self._post_info:
-            if id_ < min_id:
-                min_id = id_
-            if id_ > max_id:
-                max_id = id_
-        return min_id, max_id
 
     @staticmethod
     def local_path(path: pathlib.Path, levels: Literal[2, 3, 4] = 4) -> str:
         return '/'.join(('...', *path.parts[-levels:]))
+
+    @staticmethod
+    def extract_link_name(url: URL) -> str:
+        return url.query.getone('f', url.name)
+
+    @staticmethod
+    def is_link_supported(url: URL) -> bool:
+        return '.'.join(url.host.split('.')[-2:]) in APIAddress.__args__
 
 #
 #

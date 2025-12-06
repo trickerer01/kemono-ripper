@@ -108,6 +108,8 @@ PARSER_TITLE_NAMES_REMAP: dict[str, str] = {
     PARSER_TITLE_CONFIG_MODIFY: 'modify',
 }
 
+PARSER_PARAM_PARSER_TYPE = 'zzzparser'
+
 
 class HelpPrintExitException(Exception):
     pass
@@ -127,7 +129,11 @@ def execute_parser(parser: ArgumentParser, args: Sequence[str]) -> Namespace:
         raise HelpPrintExitException
 
     try:
-        parsed, _unks = parser.parse_known_args(args)
+        parsed, unks = parser.parse_known_args(args)
+        if unks:
+            getattr(parsed, PARSER_PARAM_PARSER_TYPE).print_help()
+            Log.error(f'\nUnrecognized arguments found: {unks!s}')
+            raise HelpPrintExitException
         return parsed
     except SystemExit:
         raise HelpPrintExitException
@@ -143,6 +149,7 @@ def create_parsers() -> dict[str, ArgumentParser]:
             parser: ArgumentParser = sub.add_parser(PARSER_TITLE_NAMES_REMAP.get(name, name), description=description, add_help=False)
         else:
             parser = ArgumentParser(add_help=False, prog=MODULE)
+        parser.set_defaults(**{PARSER_PARAM_PARSER_TYPE: parser})
         assert name not in parsers
         parsers[name] = parser
         return parser
@@ -161,7 +168,7 @@ def create_parsers() -> dict[str, ArgumentParser]:
     _ = create_parser(subs_creators, PARSER_TITLE_CREATOR_LIST, 'List creators')
     _ = create_parser(subs_creators, PARSER_TITLE_CREATOR_DUMP, 'Dump ALL creators list to a JSON file')
 
-    _ = create_parser(subs_creators, PARSER_TITLE_CREATOR_RIP, 'Scan all creator post pages and download everything')
+    _ = create_parser(subs_creators, PARSER_TITLE_CREATOR_RIP, 'Scan all creator posts and download everything')
 
     par_posts = create_parser(subs_main, PARSER_TITLE_POST, '')
     subs_posts = create_subparser(par_posts, 'post', 'subcommand_2')
@@ -215,7 +222,7 @@ def add_common_args(par: ArgumentParser) -> None:
 
 def add_logging_args(par: ArgumentParser) -> None:
     lo = par.add_argument_group(title='logging options')
-    lo.add_argument('-v', '--log-level', default=LOGGING_DEFAULT, help=HELP_ARG_LOGGING, type=log_level)
+    lo.add_argument('-v', '--log-level', default=log_level(LOGGING_DEFAULT.name.lower()), help=HELP_ARG_LOGGING, type=log_level)
     lo.add_argument('-g', '--disable-log-colors', action=ACTION_STORE_TRUE, help=HELP_ARG_NOCOLORS)
 
 
@@ -272,12 +279,12 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     pcdg1.add_argument('-i', '--indent', metavar='1..4', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
     #  rip
     pcr = parsers[PARSER_TITLE_CREATOR_RIP]
-    # pcr.usage = (
-    #     f'\n{INDENT}{MODULE} {PARSER_TITLE_CREATOR} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CREATOR_RIP]}'  # TODO: complete this
-    #     f' #[options...] #creator_id'
-    # )
-    # pcrg1 = pcr.add_argument_group(title='options')
-    # pcrg1.add_argument('-i', '--indent', metavar='1..4', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
+    pcr.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_CREATOR} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CREATOR_RIP]}'
+        f' #[options...] #creator_id'
+    )
+    pcrg1 = pcr.add_argument_group(title='options')
+    pcrg1.add_argument('creator_id', help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
 
     # Posts
     pp = parsers[PARSER_TITLE_POST]
@@ -380,10 +387,12 @@ def prepare_arglist(args: Sequence[str]) -> None:
     parsed = parse_arglist(args)
     for pp in vars(parsed):
         param = Config.NAMESPACE_VARS_REMAP.get(pp, pp)
+        parsed_value = getattr(parsed, pp)
+        parser_default = getattr(parsed, PARSER_PARAM_PARSER_TYPE).get_default(pp)
         if param in vars(Config):
-            if not getattr(Config, param):
-                setattr(Config, param, getattr(parsed, pp, getattr(Config, param)))
-        else:
+            if not getattr(Config, param) or (parsed_value and parsed_value != parser_default):
+                setattr(Config, param, parsed_value or getattr(Config, param))
+        elif param not in (PARSER_PARAM_PARSER_TYPE,):
             Log.error(f'Argument list param {param} was not consumed!')
 
 #

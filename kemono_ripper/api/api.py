@@ -111,7 +111,7 @@ class Kemono:
         retries = 0
         while retries <= self._retries:
             try:
-                Log.trace(f'Sending API request: {action!s}')
+                Log.trace(f'[{retries + 1:d}] Sending API request: {action!s}')
                 result = await self._wrap_fetch_request(action)
                 return result
             except Exception as e:
@@ -145,11 +145,13 @@ class Kemono:
             try:
                 file_size = file_path.stat().st_size if file_path.is_file() else 0
                 hkwargs: dict[str, dict[str, str]] = {'headers': {'Range': f'bytes={file_size:d}-'} if file_size > 0 else {}}
+                Log.trace(f'[{retries + 1:d}] Sending API request: {action!s}')
                 async with await self._wrap_download_request(action, **hkwargs) as r:
                     if r.status == 404:
                         Log.error(f'Got 404 for {action.get_url().human_repr()}...!')
-                        # retries = self._retries
+                        retries = self._retries
                         raise RequestError(KemonoErrorCodes.KEMONO_ERROR_CODE_GENERIC)
+                    r.raise_for_status()
                     content_len: int = r.content_length or 0
                     assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url().human_repr()}! Retrying...'
                     file_path.parent.mkdir(parents=True, exist_ok=True)

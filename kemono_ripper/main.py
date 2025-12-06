@@ -45,7 +45,7 @@ def at_startup(args: Sequence[str]) -> None:
     Log.init()
     if argv_set.intersection({'--version', '--help'}):
         return
-    Log.debug(f'Python {sys.version}\n{APP_NAME} ver {APP_VERSION}\nCommand-line args: {" ".join(sys.argv)}')
+    Log.debug(f'Python {sys.version}\n{APP_NAME} ver {APP_VERSION}\nCommand-line args: {" ".join(sys.argv)}\n')
 
 
 def autopick_config() -> None:

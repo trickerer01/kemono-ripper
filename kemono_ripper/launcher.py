@@ -14,7 +14,7 @@ from collections.abc import Callable, Coroutine, Iterable, Sequence
 
 from bs4 import BeautifulSoup
 
-from .api import Creator, Kemono, PostPageScanResult, ScannedPost, ScannedPostPost
+from .api import APIAddress, Creator, Kemono, PostPageScanResult, ScannedPost, ScannedPostPost
 from .config import Config
 from .defs import CREATORS_NAME_DEFAULT, UTF8
 from .downloader import KemonoDownloader
@@ -69,8 +69,8 @@ def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageS
         if len(parts) == 1:
             single_part = parts[0]
             # single post id
-            if single_part.isnumeric():
-                links.append(PostPageScanResult(int(single_part), 0, kemono.api_service, kemono.api_address))
+            if not single_part.startswith(APIAddress.__args__):
+                links.append(PostPageScanResult(single_part, 0, kemono.api_service, kemono.api_address))
             # full url
             else:
                 try:
@@ -82,8 +82,7 @@ def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageS
             # creator id + post id
             creator_id, post_id = parts
             assert creator_id.isnumeric(), f'Unable to parse creator info from C+P \'{line}\' at line {index + 1:d}'
-            assert post_id.isnumeric(), f'Unable to parse post info from C+P \'{line}\' at line {index + 1:d}'
-            links.append(PostPageScanResult(int(post_id), int(creator_id), kemono.api_service, kemono.api_address))
+            links.append(PostPageScanResult(post_id, int(creator_id), kemono.api_service, kemono.api_address))
     return links
 
 
@@ -102,17 +101,28 @@ async def creator_list(kemono: Kemono) -> None:
             results = json.load(infile_creators)
     results = results or await kemono.list_creators()
     matched = [c for c in results if Config.pattern.lower() in c['name'].lower()]
-    Log.info('\n'.join(('\n', *(_['name'] + ': ' + _['id'] for _ in matched))) or '\nNothing')
+    Log.info('\n'.join(('\n', *(f'{_["name"]}: {_["id"]}' for _ in matched))) or '\nNothing')
+
+
+async def creator_rip(kemono: Kemono) -> None:
+    results = await kemono.list_posts(Config.creator_id)
+    links: list[PostPageScanResult] = []
+    for lpost in results:
+        post_id = lpost['id']
+        service = lpost['service']
+        link = PostPageScanResult(post_id, Config.creator_id, service, kemono.api_address)
+        links.append(link)
+    return await post_rip_links(kemono, links=links)
 
 
 async def post_list(kemono: Kemono) -> None:
     results = await kemono.list_posts(Config.creator_id)
     listing: list[str] = []
-    for p in results:
-        id_ = p['id']
-        link = f'https://{kemono.api_address}/{Config.service}/user/{Config.creator_id}/post/{id_}'
-        listing.append(link)
-    Log.info('\n'.join(('\n', *listing)) or '\nNothing')
+    for lpost in results:
+        post_id = lpost['id']
+        url = f'https://{kemono.api_address}/{Config.service}/user/{Config.creator_id}/post/{post_id}'
+        listing.append(url)
+    Log.info('\n'.join(('', *listing)) or '\nNothing')
 
 
 async def post_scan_id(kemono: Kemono, *, download=False) -> None:
@@ -180,6 +190,7 @@ async def launch(kemono: Kemono) -> None:
     kemono_actions: dict[str, Callable[[Kemono], Coroutine[None]]] = {
         'creator dump': creator_dump,
         'creator list': creator_list,
+        'creator rip': creator_rip,
         'post list': post_list,
         'post scan id': post_scan_id,
         'post scan link': post_scan_links,

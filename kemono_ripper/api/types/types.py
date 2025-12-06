@@ -17,7 +17,7 @@ APIEndpoint: TypeAlias = Literal['creators', APIEndpointFormat]
 
 
 class PostPageScanResult(NamedTuple):
-    post_id: int
+    post_id: str
     creator_id: int
     service: APIService
     api_address: APIAddress
@@ -110,8 +110,12 @@ class ScannedPostPost(TypedDict):
 
 
 class ScannedPostAttachment(TypedDict):
-    name: str
-    path: str
+    server: str
+    name: str  # full file name with n_extension
+    extension: str  # '.abc' may differ from n_extension
+    name_extension: str
+    stem: str  # file slug without extension
+    path: str  # '/2c/41/2c41ce3128d182916e2922ea2c96148ddf2e97d5.png'
 
 
 class ScannedPostPreview(TypedDict):
@@ -132,7 +136,7 @@ class ScannedPostProps(TypedDict):
 
 class ScannedPost(TypedDict):
     post: ScannedPostPost
-    attachments: list[ScannedPostAttachment]  # TODO: validate
+    attachments: list[ScannedPostAttachment]
     previews: list[ScannedPostPreview]
     videos: list[dict]  # TODO: validate
     props: ScannedPostProps
