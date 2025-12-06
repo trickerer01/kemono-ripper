@@ -17,16 +17,14 @@ class GetCreatorsAction(APIFetchAction):
         self._setup(api_addr)
         super().__init__()
 
-    @classmethod
-    def _setup(cls, api_addr: APIAddress) -> None:
-        cls._api_address = api_addr
-        cls._method = 'GET'
-        cls._endpoint = 'creators'
-        cls._endpoint_params = ()
-        cls._request_data = {}
+    def _setup(self, api_addr: APIAddress) -> None:
+        self._api_address = api_addr
+        self._method = 'GET'
+        self._endpoint = 'creators'
+        self._endpoint_params = ()
+        self._request_data = {}
 
-    @classmethod
-    async def process_response_content(cls, content: bytes) -> list[Creator]:
+    async def process_response_content(self, content: bytes) -> list[Creator]:
         json_ = json.loads(content)
         return json_
 

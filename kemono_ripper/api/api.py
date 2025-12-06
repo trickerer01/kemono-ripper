@@ -21,14 +21,31 @@ from yarl import URL
 
 from kemono_ripper.util import UAManager
 
-from .actions import APIDownloadAction, APIFetchAction, GetCreatorPostAction, GetCreatorPostsAction, GetCreatorsAction, GetFreePostAction
+from .actions import (
+    APIAction,
+    APIDownloadAction,
+    APIFetchAction,
+    GetCreatorPostAction,
+    GetCreatorPostsAction,
+    GetCreatorsAction,
+    GetFreePostAction,
+)
 from .defs import CONNECT_RETRY_DELAY, MAX_JOBS, POSTS_PER_PAGE, DownloadMode, Mem
 from .exceptions import KemonoErrorCodes, RequestError, ValidationError
 from .filters import Filter
 from .logging import Log, set_logger
 from .options import KemonoOptions
 from .request_queue import RequestQueue
-from .types import APIAddress, APIResponse, APIService, Creator, FreePost, ListedPost, PostPageScanResult, ScannedPost
+from .types import (
+    APIAddress,
+    APIResponse,
+    APIService,
+    Creator,
+    FreePost,
+    ListedPost,
+    PostPageScanResult,
+    ScannedPost,
+)
 
 __all__ = ('Kemono',)
 
@@ -39,6 +56,7 @@ class Kemono:
         set_logger(options['logger'])
         # locals
         self._session: ClientSession | None = None
+        self._user_agent: str = ''
         # options
         self._dest_base: pathlib.Path = options['dest_base']
         self._retries: int = options['retries']
@@ -85,9 +103,9 @@ class Kemono:
         else:
             connector = TCPConnector(limit=self._max_jobs)
         session = ClientSession(connector=connector, read_bufsize=Mem.MB, timeout=self._timeout)
-        new_useragent = UAManager.select_useragent(self._proxy if use_proxy else None)
-        Log.trace(f'[{"P" if use_proxy else "NP"}] Selected user-agent \'{new_useragent}\'...')
-        session.headers.update({'User-Agent': new_useragent, 'Content-Type': 'application/json', 'Accept': 'text/css'})
+        session.headers.update({'User-Agent': self._user_agent, 'Content-Type': 'application/json', 'Accept': 'text/css'})
+        self._user_agent = UAManager.select_useragent(self._proxy if use_proxy else None)
+        Log.trace(f'[{"P" if use_proxy else "NP"}] Selected user-agent \'{self._user_agent}\'...')
         if self._extra_headers:
             for hk, hv in self._extra_headers:
                 session.headers.update({hk: hv})
@@ -96,60 +114,62 @@ class Kemono:
                 session.cookie_jar.update_cookies({ck: cv})
         return session
 
-    async def _wrap_fetch_request(self, action: APIFetchAction) -> APIResponse:
-        assert self._session is not None
+    async def _wrap_request(self, action: APIAction, try_num: int, **kwargs) -> ClientResponse:
+        session = kwargs.pop('session', self._session)
+        assert session is not None
         if self._nodelay is False:
-            await RequestQueue.until_ready(str(action.get_url()))
-        response = await self._session.request(**action.as_api_request_data())
-        response_content = await response.content.read()
-        return await action.process_response_content(response_content)
+            await RequestQueue.until_ready(action.get_url().human_repr())
+        Log.trace(f'[{try_num + 1:d}] Sending API request: {action!s}')
+        response = await session.request(**action.as_api_request_data(), **kwargs)
+        return response
 
     async def _query_api(self, action: APIFetchAction) -> APIResponse:
         if self._session is None:
             self._session = self._make_session()
 
-        retries = 0
-        while retries <= self._retries:
+        try_num = 0
+        while try_num <= self._retries:
+            r: ClientResponse | None = None
             try:
-                Log.trace(f'[{retries + 1:d}] Sending API request: {action!s}')
-                result = await self._wrap_fetch_request(action)
-                return result
+                async with await self._wrap_request(action, try_num) as r:
+                    if r.status == 404:
+                        Log.error(f'Got 404 for {action.get_url().human_repr()}...!')
+                        try_num = self._retries
+                        raise RequestError(KemonoErrorCodes.KEMONO_ERROR_CODE_GENERIC)
+                    r.raise_for_status()
+                    response_content = await r.content.read()
+                    result = await action.process_response_content(response_content)
+                    return result
             except Exception as e:
-                if isinstance(e, RequestError):
-                    raise
-                if not isinstance(e, ClientConnectorError):
-                    retries += 1
-                if retries <= self._retries:
+                Log.error(f'{action.get_url().human_repr()}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
+                if (r is None or r.status != 403) and not isinstance(e, (ClientPayloadError, ClientConnectorError)):
+                    try_num += 1
+                    Log.error(f'{action.get_url().human_repr()}: error #{try_num:d}...')
+                if r is not None and not r.closed:
+                    r.close()
+                if try_num <= self._retries:
                     await sleep(random.uniform(*CONNECT_RETRY_DELAY))
                 continue
 
-        if retries > self._retries:
+        if try_num > self._retries:
             Log.error('Unable to connect. Aborting')
         raise ConnectionError
-
-    async def _wrap_download_request(self, action: APIDownloadAction, **kwargs) -> ClientResponse:
-        assert self._session is not None
-        if self._nodelay is False:
-            await RequestQueue.until_ready(str(action.get_url()))
-        response = await self._session.request(**action.as_api_request_data(), **kwargs)
-        return response
 
     async def _download(self, action: APIDownloadAction, file_path: pathlib.Path) -> tuple[int, KemonoErrorCodes]:
         if self._session is None:
             self._session = self._make_session()
 
-        retries = 0
+        try_num = 0
         bytes_written = 0
-        while retries <= self._retries:
+        while try_num <= self._retries:
             r: ClientResponse | None = None
             try:
                 file_size = file_path.stat().st_size if file_path.is_file() else 0
                 hkwargs: dict[str, dict[str, str]] = {'headers': {'Range': f'bytes={file_size:d}-'} if file_size > 0 else {}}
-                Log.trace(f'[{retries + 1:d}] Sending API request: {action!s}')
-                async with await self._wrap_download_request(action, **hkwargs) as r:
+                async with await self._wrap_request(action, try_num=try_num, session=self._session, **hkwargs) as r:
                     if r.status == 404:
                         Log.error(f'Got 404 for {action.get_url().human_repr()}...!')
-                        retries = self._retries
+                        try_num = self._retries
                         raise RequestError(KemonoErrorCodes.KEMONO_ERROR_CODE_GENERIC)
                     r.raise_for_status()
                     content_len: int = r.content_length or 0
@@ -163,16 +183,16 @@ class Kemono:
             except Exception as e:
                 Log.error(f'{file_path.name}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
                 if (r is None or r.status != 403) and not isinstance(e, (ClientPayloadError, ClientConnectorError)):
-                    retries += 1
+                    try_num += 1
                     local_path = '/'.join(file_path.parts[-3:])
-                    Log.error(f'{local_path}: error #{retries:d}...')
+                    Log.error(f'{local_path}: error #{try_num:d}...')
                 if r is not None and not r.closed:
                     r.close()
-                if retries <= self._retries:
+                if try_num <= self._retries:
                     await sleep(random.uniform(*CONNECT_RETRY_DELAY))
                 continue
 
-        if retries > self._retries:
+        if try_num > self._retries:
             Log.error('Unable to connect. Aborting')
         raise ConnectionError
 

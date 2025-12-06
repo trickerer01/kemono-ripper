@@ -9,9 +9,10 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 from __future__ import annotations
 
 import pathlib
+import random
 from asyncio import Lock as AsyncLock
 from asyncio.queues import Queue as AsyncQueue
-from asyncio.tasks import as_completed, sleep
+from asyncio.tasks import as_completed, gather, sleep
 from collections import defaultdict, deque
 from collections.abc import Iterable, Sequence
 from enum import IntEnum
@@ -188,15 +189,12 @@ class KemonoDownloader:
 
     async def _download_post(self, post: PostDownloadInfo) -> None:
         post.status.state = State.DOWNLOADING
-        await self._at_post_start(post)
-        for _, plink in post.links.items():
-            await self._download_post_link(post, plink)
-        await self._at_post_finish(post)
+        tasks = [self._download_post_link(post, plink) for _, plink in post.links.items()]
+        _ = await gather(*tasks)
 
     async def _download_post_link(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
         await self._at_post_link_start(post, plink)
         plink_id = f'[{post.creator_id}:{post.post_id}] \'{plink.name}\''
-        Log.info(f'{plink_id} Processing {plink.url.human_repr()} => {plink.local_path}')
         plink.status.state = State.SCANNING
         supported = self.is_link_supported(plink.url)
         # if not supported: # TODO: mega downloader, gdrive downloader
@@ -207,6 +205,7 @@ class KemonoDownloader:
             Log.warn(f'{plink_id}: File {plink.local_path} already exists! Skipped.')
             dresult = DownloadResult.FAIL_ALREADY_EXISTS
         else:
+            Log.info(f'{plink_id} Processing {plink.url.human_repr()} => {plink.local_path}')
             plink.status.state = State.DOWNLOADING
             await self.add_to_writes(post, plink, True)
             bytes_written, ec = await self._kemono.download_url(plink.url, plink.path)
@@ -245,7 +244,9 @@ class KemonoDownloader:
                 dsize = len(self._downloads_active)
             if qsize > 0 and dsize < Config.max_jobs:
                 post = await self._queue_consume.get()
+                await self._at_post_start(post)
                 await self._download_post(post)
+                await self._at_post_finish(post)
                 self._queue_consume.task_done()
             else:
                 await sleep(0.35)
@@ -303,6 +304,10 @@ class KemonoDownloader:
             next_file_name.name_idx = getattr(next_file_name, 'name_idx', 0) + 1
             return f'{next_file_name.name_idx:02d}_{name_base}'
 
+        def next_api_address() -> URL:
+            next_api_address.name_idx = (getattr(next_api_address, 'name_idx', random.randint(1, 99)) + random.randint(1, 99)) % 3 + 1
+            return URL(f'https://n{next_api_address.name_idx:d}.{self._kemono.api_address}')
+
         post_strings: list[str] = []
         for spost in scanned_posts:
             post: ScannedPostPost = spost['post']
@@ -315,13 +320,12 @@ class KemonoDownloader:
             if previews := spost['previews']:
                 for preview in previews:
                     purl = URL(preview['path'])
-                    plink = purl if purl.absolute else URL(f'https://{self._kemono.api_address}').join(purl)
-                    links_dict.update({plink: preview['name']})
+                    links_dict.update({purl: preview['name']})
 
             if attachments := post['attachments']:
                 for attachment in attachments:
-                    alink = URL(f'https://{self._kemono.api_address}').with_path(attachment['path'])
-                    links_dict.update({alink: attachment['name']})
+                    aurl = URL(attachment['path'])
+                    links_dict.update({aurl: attachment['name']})
 
             content = post['content']
             if content and len(content) >= 40:
@@ -331,23 +335,26 @@ class KemonoDownloader:
                     bs_tags = bs.find_all(tag_type)
                     for bs_tag in bs_tags:
                         url = URL(bs_tag[tag_name])
-                        link = url if url.absolute else URL(f'https://{self._kemono.api_address}').join(url)
-                        link_purged = link.with_query('')
-                        if link_purged not in links_dict:
-                            if self.is_link_supported(link):
-                                link_name = self.extract_link_name(link)
+                        url_purged = url.with_query('')
+                        if url_purged not in links_dict:
+                            if self.is_link_supported(url_purged):
+                                link_name = self.extract_link_name(url)
                             else:
                                 link_idx += 1
                                 link_name = f'unk_{link_idx:02d}'
-                            links_dict.update({link_purged: link_name})
+                            links_dict.update({url_purged: link_name})
 
             if file := post['file']:
-                flink = URL(f'https://{self._kemono.api_address}').with_path(file['path'])
-                links_dict.update({flink: file['name']})
+                furl = URL(file['path'])
+                links_dict.update({furl: file['name']})
 
             links: dict[str, PostLinkDownloadInfo] = {}
             links_dict_r: dict[str, URL] = {v: k for k, v in links_dict.items()}
-            for name, link_full in links_dict_r.items():
+            for name, link_base in links_dict_r.items():
+                if link_base.host in APIAddress.__args__ or not link_base.is_absolute():
+                    link_full = next_api_address().with_path(f'data{link_base.path}')
+                else:
+                    link_full = link_base
                 lpath = Config.dest_base / user / pid / sanitize_filename(next_file_name(name))
                 links[name] = PostLinkDownloadInfo(name=name, url=link_full, path=lpath)
 

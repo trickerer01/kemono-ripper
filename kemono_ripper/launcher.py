@@ -69,7 +69,7 @@ def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageS
         if len(parts) == 1:
             single_part = parts[0]
             # single post id
-            if not single_part.startswith(APIAddress.__args__):
+            if not single_part.replace(HTTPS_PREFIX, '').startswith(APIAddress.__args__):
                 links.append(PostPageScanResult(single_part, 0, kemono.api_service, kemono.api_address))
             # full url
             else:

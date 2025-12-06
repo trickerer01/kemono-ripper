@@ -70,7 +70,7 @@ KEMONO_ERROR_DESCRIPTION: dict[KemonoErrorCodes, tuple[str, str]] = {
     KemonoErrorCodes.EREAD: ('EREAD', 'Read failed'),
     KemonoErrorCodes.EAPPKEY: ('EAPPKEY', 'Invalid application key; request not processed'),
     # fallback
-    KemonoErrorCodes.KEMONO_ERROR_CODE_GENERIC: ('EGENERIC', 'Unknown error \'%d\''),
+    KemonoErrorCodes.KEMONO_ERROR_CODE_GENERIC: ('EGENERIC', 'Unknown error'),
 }
 
 
