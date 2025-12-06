@@ -8,11 +8,11 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 import json
 
-from kemono_ripper.api.actions import APIAction
+from kemono_ripper.api.actions import APIFetchAction
 from kemono_ripper.api.types import APIAddress, APIService, FreePost, ListedPost, ScannedPost
 
 
-class GetCreatorPostsAction(APIAction):
+class GetCreatorPostsAction(APIFetchAction):
     def __init__(self, api_addr: APIAddress, service: APIService, creator_id: int, offset: int) -> None:
         self._setup(api_addr, service, creator_id, offset)
         super().__init__()
@@ -31,7 +31,7 @@ class GetCreatorPostsAction(APIAction):
         return json_
 
 
-class GetFreePostAction(APIAction):
+class GetFreePostAction(APIFetchAction):
     def __init__(self, api_addr: APIAddress, service: APIService, post_id: int) -> None:
         self._setup(api_addr, service, post_id)
         super().__init__()
@@ -50,7 +50,7 @@ class GetFreePostAction(APIAction):
         return json_
 
 
-class GetCreatorPostAction(APIAction):
+class GetCreatorPostAction(APIFetchAction):
     def __init__(self, api_addr: APIAddress, service: APIService, creator_id: int, post_id: int) -> None:
         self._setup(api_addr, service, creator_id, post_id)
         super().__init__()

@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'kemono-ripper'
-version = '0.1.16'
+version = '0.1.17'
 authors = [
     {name = 'trickerer01'},
 ]
@@ -38,6 +38,7 @@ classifiers = [
 ]
 requires-python = '>=3.10'
 dependencies = [
+    'aiofile>=3.8.1',
     'aiohttp>=3.8.0',
     'aiohttp-socks>=0.8.0',
     'beautifulsoup4>=4.9.3',

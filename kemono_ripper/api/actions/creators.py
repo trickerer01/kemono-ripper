@@ -8,11 +8,11 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 import json
 
-from kemono_ripper.api.actions import APIAction
+from kemono_ripper.api.actions import APIFetchAction
 from kemono_ripper.api.types import APIAddress, Creator
 
 
-class GetCreatorsAction(APIAction):
+class GetCreatorsAction(APIFetchAction):
     def __init__(self, api_addr: APIAddress) -> None:
         self._setup(api_addr)
         super().__init__()

@@ -1,0 +1,387 @@
+# coding=UTF-8
+"""
+Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
+"""
+#########################################
+#
+#
+
+from __future__ import annotations
+
+import json
+import pathlib
+from asyncio import Lock as AsyncLock
+from asyncio.queues import Queue as AsyncQueue
+from asyncio.tasks import as_completed, sleep
+from collections import defaultdict, deque
+from collections.abc import Iterable, Sequence
+from enum import IntEnum
+from typing import Final, Literal, NamedTuple
+
+from bs4 import BeautifulSoup
+from yarl import URL
+
+from .api import APIAddress, Creator, Kemono, KemonoErrorCodes, Mem, ScannedPost, ScannedPostPost
+from .config import Config
+from .defs import CREATORS_NAME_DEFAULT, UTF8
+from .logger import Log
+from .util import sanitize_filename
+
+__all__ = ('KemonoDownloader',)
+
+
+SUPPORTED_TAGS = (
+    ('a', 'href'),
+    ('img', 'src'),
+)
+
+
+class DownloadResult(IntEnum):
+    SUCCESS = 0
+    FAIL_NOT_FOUND = 1
+    FAIL_RETRIES = 2
+    FAIL_ALREADY_EXISTS = 3
+    FAIL_SKIPPED = 4
+    FAIL_FILTERED_OUTER = 5
+    FAIL_UNSUPPORTED = 6
+    FAIL_NO_LINKS = 7
+    UNKNOWN = 255
+
+    RESULT_MASK_ALL = ((1 << SUCCESS) | (1 << FAIL_NOT_FOUND) | (1 << FAIL_RETRIES) | (1 << FAIL_ALREADY_EXISTS) |
+                       (1 << FAIL_SKIPPED) | (1 << FAIL_FILTERED_OUTER) | (1 << FAIL_UNSUPPORTED) | (1 << FAIL_NO_LINKS))
+    RESULT_MASK_CRITICAL = (RESULT_MASK_ALL & ~((1 << SUCCESS) | (1 << FAIL_SKIPPED) | (1 << FAIL_ALREADY_EXISTS)))
+
+    def __str__(self) -> str:
+        return f'{self.name} (0x{self.value:02X})'
+
+
+class State(IntEnum):
+    NEW = 0
+    QUEUED = 1
+    ACTIVE = 2
+    SCANNING = 3
+    SCANNED = 4
+    DOWNLOAD_PENDING = 5
+    DOWNLOADING = 6
+    WRITING = 7
+    DONE = 8
+    FAILED = 9
+
+
+class Flags(IntEnum):
+    NONE = 0x0
+    ALREADY_EXISTED_EXACT = 0x1
+    ALREADY_EXISTED_SIMILAR = 0x2
+    FILE_WAS_CREATED = 0x4
+    RETURNED_404 = 0x8
+
+
+class Status:
+    def __init__(self) -> None:
+        self.result: DownloadResult = DownloadResult.UNKNOWN
+        self.state: State = State.NEW
+
+
+class PostLinkDownloadInfo(NamedTuple):
+    name: str
+    url: URL
+    path: pathlib.Path
+    flags: Flags = Flags.NONE
+    status: Status = Status()
+
+    @property
+    def local_path(self) -> str:
+        return KemonoDownloader.local_path(self.path)
+
+
+class PostDownloadInfo(NamedTuple):
+    post_id: int
+    creator_id: int
+    creator_name: str
+    original_post: ScannedPost
+    links: dict[str, PostLinkDownloadInfo]
+    completed: list[PostLinkDownloadInfo] = []
+    status: Status = Status()
+
+    def __hash__(self) -> int:
+        return hash(self.post_id)
+
+
+class KemonoDownloader:
+    def __init__(self, kemono: Kemono, posts: Sequence[ScannedPost]) -> None:
+        self._kemono: Final[Kemono] = kemono
+        self._post_info: Final[dict[int, PostDownloadInfo]] = {}
+
+        self._queue_produce: deque[PostDownloadInfo] = deque()
+        self._queue_consume: AsyncQueue[PostDownloadInfo] = AsyncQueue(Config.max_jobs)
+
+        self._downloaded_count: dict[int, int] = defaultdict(int)
+        self._already_exist_count: dict[int, int] = defaultdict(int)
+        self._skipped_count: dict[int, int] = defaultdict(int)
+        self._404_count: dict[int, int] = defaultdict(int)
+
+        self._downloads_active: dict[PostDownloadInfo, list[PostLinkDownloadInfo]] = defaultdict(list[PostLinkDownloadInfo])
+        self._writes_active: dict[PostDownloadInfo, list[PostLinkDownloadInfo]] = defaultdict(list[PostLinkDownloadInfo])
+        self._failed_items: dict[PostDownloadInfo, list[PostLinkDownloadInfo]] = defaultdict(list[PostLinkDownloadInfo])
+
+        self._sequence_lock: Final[AsyncLock] = AsyncLock()
+        self._active_downloads_lock: Final[AsyncLock] = AsyncLock()
+        self._active_writes_lock: Final[AsyncLock] = AsyncLock()
+
+        self._gather_post_download_info(posts)
+        self._queue_produce.extend(post for _, post in self._post_info.items())
+
+        self._orig_count: Final[int] = len(posts)
+        self._minmax_id: Final[tuple[int, int]] = self._get_min_max_post_ids()
+
+    async def __aenter__(self) -> KemonoDownloader:
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        return
+
+    async def _at_post_link_start(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
+        async with self._active_downloads_lock:
+            self._downloads_active[post].append(plink)
+        Log.trace(f'[queue] post {post.post_id:d} \'{post.original_post["post"]["title"]}\' added to active')
+
+    async def _at_post_link_finish(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
+        async with self._active_downloads_lock:
+            post.completed.append(plink)
+            result = plink.status.result
+            if result == DownloadResult.FAIL_ALREADY_EXISTS:
+                self._already_exist_count[post.post_id] += 1
+            elif result in (DownloadResult.FAIL_SKIPPED, DownloadResult.FAIL_FILTERED_OUTER):
+                self._skipped_count[post.post_id] += 1
+            elif result == DownloadResult.FAIL_NOT_FOUND:
+                self._404_count[post.post_id] += 1
+            elif result == DownloadResult.FAIL_RETRIES:
+                self._failed_items[post].append(plink)
+            elif result == DownloadResult.SUCCESS:
+                self._downloaded_count[post.post_id] += 1
+
+    # noinspection PyMethodMayBeStatic
+    async def _at_post_start(self, post: PostDownloadInfo) -> None:
+        Log.info(f'Processing post [{post.creator_id}:{post.post_id}] \'{post.original_post["post"]["title"]}\'...')
+
+    async def _at_post_finish(self, post: PostDownloadInfo) -> None:
+        pid = f'[{post.creator_id:d}:{post.post_id:d}] \'{post.original_post["post"]["title"]}\''
+        async with self._active_downloads_lock:
+            assert post in self._downloads_active
+            results = [plink.status.result for _, plink in post.links.items()]
+            assert not any(_ == DownloadResult.UNKNOWN for _ in results)
+            success = len([_ for _ in results if _ == DownloadResult.SUCCESS])
+            fail_404 = len([_ for _ in results if _ == DownloadResult.FAIL_NOT_FOUND])
+            fail_tries = len([_ for _ in results if _ == DownloadResult.FAIL_RETRIES])
+            exists = len([_ for _ in results if _ == DownloadResult.FAIL_ALREADY_EXISTS])
+            skipped = len([_ for _ in results if _ == DownloadResult.FAIL_SKIPPED])
+            filtered = len([_ for _ in results if _ == DownloadResult.FAIL_FILTERED_OUTER])
+            unsupported = len([_ for _ in results if _ == DownloadResult.FAIL_UNSUPPORTED])
+            if len(post.links) > unsupported:
+                Log.info(f'[queue] post {pid}: Done: {len(post.links):d} links: {success:d} downloaded, {fail_tries:d} failed,'
+                         f' {skipped:d} skipped, {filtered:d} filtered out, {exists:d} already exists, {fail_404:d} not found,'
+                         f' {unsupported:d} unsupported')
+            else:
+                links_str = '\n'.join(('\n', *(plink.url.human_repr() for _, plink in post.links.items())))
+                Log.info(f'[queue] post {pid}: None of {len(post.links):d} are supported: {links_str}')
+
+            self._downloads_active.pop(post)
+            Log.trace(f'[queue] post {post.post_id:d} \'{post.original_post["post"]["title"]}\' removed from active')
+
+    async def _download_post(self, post: PostDownloadInfo) -> None:
+        post.status.state = State.DOWNLOADING
+        await self._at_post_start(post)
+        for _, plink in post.links.items():
+            await self._download_post_link(post, plink)
+        await self._at_post_finish(post)
+
+    async def _download_post_link(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
+        await self._at_post_link_start(post, plink)
+        plink_id = f'[{post.creator_id}:{post.post_id}] \'{plink.name}\''
+        Log.info(f'{plink_id} Processing {plink.url.human_repr()} => {plink.local_path}')
+        plink.status.state = State.SCANNING
+        supported = '.'.join(plink.url.host.split('.')[-2:]) in APIAddress.__args__
+        # if not supported: # TODO: mega downloader, gdrive downloader
+        if not supported:
+            Log.warn(f'{plink_id}: Skipping unsupported link format {plink.url.human_repr()}...')
+            dresult = DownloadResult.FAIL_UNSUPPORTED
+        elif plink.path.is_file():
+            Log.warn(f'{plink_id}: File {plink.local_path} already exists! Skipped.')
+            dresult = DownloadResult.FAIL_ALREADY_EXISTS
+        else:
+            plink.status.state = State.DOWNLOADING
+            await self.add_to_writes(post, plink, True)
+            bytes_written, ec = await self._kemono.download_url(plink.url, plink.path)
+            await self.remove_from_writes(post, plink, True)
+            if plink.path.is_file():
+                assert plink.path.stat().st_size == bytes_written
+                Log.info(f'{plink_id}: Completed, {plink.local_path}, size: {bytes_written / Mem.MB:.2f} MB')
+            else:
+                Log.warn(f'{plink_id}: Failed: {ec!s}')
+            dresult = DownloadResult.SUCCESS if ec == KemonoErrorCodes.ESUCCESS else DownloadResult.FAIL_RETRIES
+        plink.status.result = dresult
+        plink.status.state = State.FAILED if ((1 << plink.status.result) & DownloadResult.RESULT_MASK_CRITICAL) else State.DONE
+        await self._at_post_link_finish(post, plink)
+
+    async def _prod(self) -> None:
+        while True:
+            async with self._sequence_lock:
+                if self.can_fetch_next() is False:
+                    break
+                qfull = self._queue_consume.full()
+            if qfull is False:
+                if post := await self._try_fetch_next():
+                    post.status.state = State.QUEUED
+                    await self._queue_consume.put(post)
+            else:
+                await sleep(0.2)
+
+    async def _cons(self) -> None:
+        while True:
+            async with self._sequence_lock:
+                can_fetch = self.can_fetch_next()
+                qsize = self._queue_consume.qsize()
+            if can_fetch is False and qsize == 0:
+                break
+            async with self._active_downloads_lock:
+                dsize = len(self._downloads_active)
+            if qsize > 0 and dsize < Config.max_jobs:
+                post = await self._queue_consume.get()
+                await self._download_post(post)
+                self._queue_consume.task_done()
+            else:
+                await sleep(0.35)
+
+    async def _after_download(self) -> None:
+        newline = '\n'
+        # Log.info(f'\nDone. {self._downloaded_count:d} / {self._orig_count:d} file(s) downloaded, '  # TODO: calculate totals
+        #          f'{self._already_exist_count:d} already existed, {self._skipped_count:d} skipped, {self._404_count:d} not found')
+        if len(self._queue_produce) > 0:
+            Log.fatal(f'total queue is still at {len(self._queue_produce):d} != 0!')
+        if len(self._writes_active) > 0:
+            Log.fatal(f'active writes count is still at {len(self._writes_active):d} != 0!')
+        if len(self._failed_items) > 0:
+            fitems = ['\n'.join([f'{post.creator_id:d}:{post.post_id:d} {plink.url.human_repr()} => {plink.local_path}'
+                                 for plink in plinks]) for post, plinks in self._failed_items.items()]
+            Log.fatal(f'\nFailed items:\n{newline.join(fitems)}')
+
+    async def run(self) -> None:
+        for cv in as_completed([self._prod(), *(self._cons() for _ in range(Config.max_jobs))]):
+            await cv
+        await self._after_download()
+        await self._queue_consume.join()
+
+    async def is_writing(self, post: PostDownloadInfo) -> bool:
+        async with self._active_writes_lock:
+            return post in self._writes_active
+
+    async def add_to_writes(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo, safe=False) -> None:
+        async with self._active_writes_lock:
+            if safe is False or post not in self._writes_active or plink not in self._writes_active[post]:
+                self._writes_active[post].append(plink)
+
+    async def remove_from_writes(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo, safe=False) -> None:
+        async with self._active_writes_lock:
+            if safe is False or post in self._writes_active:
+                if plink in self._writes_active[post]:
+                    self._writes_active[post].remove(plink)
+                if not self._writes_active[post]:
+                    self._writes_active.pop(post)
+
+    def can_fetch_next(self) -> bool:
+        return bool(self._queue_produce)
+
+    def get_workload_size(self) -> int:
+        return len(self._queue_produce) + self._queue_consume.qsize() + len(self._downloads_active)
+
+    async def _try_fetch_next(self) -> PostDownloadInfo | None:
+        async with self._sequence_lock:
+            if self._queue_produce:
+                return self._queue_produce.popleft()
+        return None
+
+    def _gather_post_download_info(self, scanned_posts: Iterable[ScannedPost]) -> None:
+        def next_file_name(name_base: str) -> str:
+            nonlocal name_idx
+            name_idx += 1
+            return f'{name_idx:02d}_{name_base}'
+
+        name_idx = 0
+
+        creators: list[Creator] = []
+        creators_file_path = Config.dest_base / CREATORS_NAME_DEFAULT
+        if creators_file_path.is_file():
+            Log.info(f'Creators cache found at {self.local_path(creators_file_path, 2)}...')
+            with open(creators_file_path, 'rt', encoding=UTF8) as infile_creators:
+                creators.extend(json.load(infile_creators))
+        else:
+            Log.info(f'Creators cache NOT found at {self.local_path(creators_file_path, 2)}...')
+
+        post_strings: list[str] = []
+        for spost in scanned_posts:
+            post: ScannedPostPost = spost['post']
+            pid = post['id']
+            user = post['user']
+            title = post['title']
+
+            links_dict: dict[URL, str] = {}
+
+            if previews := spost['previews']:
+                for preview in previews:
+                    purl = URL(preview['path'])
+                    plink = purl if purl.absolute else URL(f'https://{self._kemono.api_address}').join(purl)
+                    links_dict.update({plink: preview['name']})
+
+            if attachments := post['attachments']:
+                for attachment in attachments:
+                    alink = URL(f'https://{self._kemono.api_address}').with_path(attachment['path'])
+                    links_dict.update({alink: attachment['name']})
+
+            content = post['content']
+            if content and len(content) >= 40:
+                bs = BeautifulSoup(content, 'html.parser')
+                link_idx = len(links_dict)
+                for tag_type, tag_name in SUPPORTED_TAGS:
+                    bs_tags = bs.find_all(tag_type)
+                    for bs_tag in bs_tags:
+                        url = URL(bs_tag[tag_name])
+                        link = url if url.absolute else URL(f'https://{self._kemono.api_address}').join(url)
+                        links_dict.update({link: f'link_{link_idx:d}'})
+                        link_idx += 1
+
+            if file := post['file']:
+                flink = URL(f'https://{self._kemono.api_address}').with_path(file['path'])
+                links_dict.update({flink: file['name']})
+
+            links: dict[str, PostLinkDownloadInfo] = {}
+            links_dict_r: dict[str, URL] = {v: k for k, v in links_dict.items()}
+            for name, link_full in links_dict_r.items():
+                lpath = Config.dest_base / user / pid / sanitize_filename(next_file_name(name))
+                links[name] = PostLinkDownloadInfo(name=name, url=link_full, path=lpath)
+
+            creator_name = ([_ for _ in creators if _['id'] == user] or [Creator(
+                id=user, name=user, service=self._kemono.api_service, indexed=0, updated=0, favorited=0)])[0]['name']
+            self._post_info[int(pid)] = PostDownloadInfo(
+                post_id=int(pid), creator_id=int(user), creator_name=creator_name, original_post=spost, links=links)
+
+            Log.trace(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links...')
+            post_strings.append(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links...')
+
+        Log.info('\n'.join(post_strings))
+
+    def _get_min_max_post_ids(self) -> tuple[int, int]:
+        min_id, max_id = 10**18, 0
+        for id_ in self._post_info:
+            if id_ < min_id:
+                min_id = id_
+            if id_ > max_id:
+                max_id = id_
+        return min_id, max_id
+
+    @staticmethod
+    def local_path(path: pathlib.Path, levels: Literal[2, 3, 4] = 4) -> str:
+        return '/'.join(('...', *path.parts[-levels:]))
+
+#
+#
+#########################################

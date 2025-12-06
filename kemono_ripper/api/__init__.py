@@ -1,6 +1,6 @@
 from .api import Kemono
 from .defs import DOWNLOAD_MODE_DEFAULT, DOWNLOAD_MODES, DownloadMode, DownloadResult, Mem, NumRange
-from .exceptions import KemonoAPIError
+from .exceptions import KemonoAPIError, KemonoErrorCodes
 from .options import KemonoOptions
 from .request_queue import RequestQueue
 from .types import (
@@ -44,6 +44,7 @@ __all__ = (
     'FreePost',
     'Kemono',
     'KemonoAPIError',
+    'KemonoErrorCodes',
     'KemonoOptions',
     'ListedPost',
     'ListedPostAttachment',

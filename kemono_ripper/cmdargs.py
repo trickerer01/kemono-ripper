@@ -84,6 +84,9 @@ PARSER_TITLE_POST_SCAN_ID = 'pscan_id'
 PARSER_TITLE_POST_SCAN_URL = 'pscan_url'
 PARSER_TITLE_POST_SCAN_FILE = 'pscan_file'
 PARSER_TITLE_POST_RIP = 'prip'
+PARSER_TITLE_POST_RIP_ID = 'prip_id'
+PARSER_TITLE_POST_RIP_URL = 'prip_url'
+PARSER_TITLE_POST_RIP_FILE = 'prip_file'
 PARSER_TITLE_CONFIG = 'config'
 PARSER_TITLE_CONFIG_CREATE = 'cfcreate'
 PARSER_TITLE_CONFIG_MODIFY = 'cfmodify'
@@ -98,6 +101,9 @@ PARSER_TITLE_NAMES_REMAP: dict[str, str] = {
     PARSER_TITLE_POST_SCAN_URL: 'url',
     PARSER_TITLE_POST_SCAN_FILE: 'file',
     PARSER_TITLE_POST_RIP: 'rip',
+    PARSER_TITLE_POST_RIP_ID: 'id',
+    PARSER_TITLE_POST_RIP_URL: 'url',
+    PARSER_TITLE_POST_RIP_FILE: 'file',
     PARSER_TITLE_CONFIG_CREATE: 'create',
     PARSER_TITLE_CONFIG_MODIFY: 'modify',
 }
@@ -162,12 +168,16 @@ def create_parsers() -> dict[str, ArgumentParser]:
     _ = create_parser(subs_posts, PARSER_TITLE_POST_LIST, 'List creator posts')
 
     par_post_scan = create_parser(subs_posts, PARSER_TITLE_POST_SCAN, 'Scan post contents')
-    subs_posts_scan = create_subparser(par_post_scan, 'inputs', 'subcommand_3')
-    _ = create_parser(subs_posts_scan, PARSER_TITLE_POST_SCAN_ID, 'Scan posts by post id')
-    _ = create_parser(subs_posts_scan, PARSER_TITLE_POST_SCAN_URL, 'Scan posts by URL')
-    _ = create_parser(subs_posts_scan, PARSER_TITLE_POST_SCAN_FILE, 'Read scan targets from text file')
+    subs_post_scan = create_subparser(par_post_scan, 'inputs', 'subcommand_3')
+    _ = create_parser(subs_post_scan, PARSER_TITLE_POST_SCAN_ID, 'Scan posts by post id')
+    _ = create_parser(subs_post_scan, PARSER_TITLE_POST_SCAN_URL, 'Scan posts by URL')
+    _ = create_parser(subs_post_scan, PARSER_TITLE_POST_SCAN_FILE, 'Read posts to scan from a text file')
 
-    _ = create_parser(subs_posts, PARSER_TITLE_POST_RIP, 'Scan post content and download everything')
+    par_post_rip = create_parser(subs_posts, PARSER_TITLE_POST_RIP, 'Scan post content and download everything')
+    subs_post_rip = create_subparser(par_post_rip, 'inputs', 'subcommand_3')
+    _ = create_parser(subs_post_rip, PARSER_TITLE_POST_RIP_ID, 'Rip posts by post id')
+    _ = create_parser(subs_post_rip, PARSER_TITLE_POST_RIP_URL, 'Rip posts by URL')
+    _ = create_parser(subs_post_rip, PARSER_TITLE_POST_RIP_FILE, 'Read posts to rip from a text file')
 
     par_config = create_parser(subs_main, PARSER_TITLE_CONFIG, '')
     subs_config = create_subparser(par_config, 'config', 'subcommand_2')
@@ -323,14 +333,44 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     ppsfg1.add_argument('file', help=HELP_ARG_POST_FILE, type=valid_file_path)
     #  rip
     ppr = parsers[PARSER_TITLE_POST_RIP]
-    # ppr.usage = (
-    #     f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP]}'  # TODO: complete this
-    #     f' #[options...] #post_id [post_id ...]'
-    # )
-    # pprg1 = ppr.add_argument_group(title='options')
-    # pprg1.add_argument('links', metavar='URL [URL ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_URL, type=valid_post_url)
+    ppr.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP_ID]} ...'
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP_URL]} ...'
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP_FILE]} ...'
+    )
+    #   rip ids
+    ppri = parsers[PARSER_TITLE_POST_RIP_ID]
+    ppri.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP_ID]}'
+        f' #[options...] [--creator-id #user_id] #post_id [post_id ...]'
+    )
+    pprig1 = ppri.add_argument_group(title='options')
+    pprig1.add_argument('post_id', metavar='post_id [post_id ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_ID, type=positive_nonzero_int)
+    pprig1.add_argument('--creator-id', nargs=OPTIONAL, default=0, help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
+    #   rip URL
+    ppru = parsers[PARSER_TITLE_POST_RIP_URL]
+    ppru.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP_URL]}'
+        f' #[options...] #URL [URL ...]'
+    )
+    pprug1 = ppru.add_argument_group(title='options')
+    pprug1.add_argument('links', metavar='URL [URL ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_URL, type=valid_post_url)
+    #   rip file
+    pprf = parsers[PARSER_TITLE_POST_RIP_FILE]
+    pprf.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP_FILE]}'
+        f' #[options...] #file'
+    )
+    pprfg1 = pprf.add_argument_group(title='options')
+    pprfg1.add_argument('file', help=HELP_ARG_POST_FILE, type=valid_file_path)
 
-    [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppsi, ppsu, ppsf, ppr, pcfc, pcfm)]
+    [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppsi, ppsu, ppsf, ppri, ppru, pprf, pcfc, pcfm)]
     [add_logging_args(_) for _ in parsers.values()]
     [add_help(_, _ == parser_root) for _ in parsers.values()]
     return execute_parser(parser_root, args)

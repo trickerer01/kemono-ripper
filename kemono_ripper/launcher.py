@@ -10,13 +10,14 @@ import json
 import pathlib
 import sys
 from argparse import ArgumentError
-from collections.abc import Callable, Coroutine, Iterable
+from collections.abc import Callable, Coroutine, Iterable, Sequence
 
 from bs4 import BeautifulSoup
 
 from .api import Creator, Kemono, PostPageScanResult, ScannedPost, ScannedPostPost
 from .config import Config
 from .defs import CREATORS_NAME_DEFAULT, UTF8
+from .downloader import KemonoDownloader
 from .logger import Log
 from .util import HTTP_PREFIX, HTTPS_PREFIX
 
@@ -25,7 +26,13 @@ __all__ = ('launch',)
 from .validators import valid_post_url
 
 
-def _process_scan_results(kemono: Kemono, results: Iterable[ScannedPost]) -> None:
+async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], *, download=False) -> None:
+    if download:
+        Log.info(f'Sending {len(results):d} posts to download queue...')
+        async with KemonoDownloader(kemono, results) as downloader:
+            await downloader.run()
+        return
+
     listing: list[str] = []
     for sp in results:
         p: ScannedPostPost = sp['post']
@@ -89,8 +96,8 @@ async def creator_dump(kemono: Kemono) -> None:
 
 async def creator_list(kemono: Kemono) -> None:
     results: list[Creator] = []
-    cache_path = Config.dest_base / 'creators.json'
-    if Config.skip_cache is False and cache_path.exists():
+    cache_path = Config.dest_base / CREATORS_NAME_DEFAULT
+    if Config.skip_cache is False and cache_path.is_file():
         with open(cache_path, 'rt', encoding=UTF8) as infile_creators:
             results = json.load(infile_creators)
     results = results or await kemono.list_creators()
@@ -108,7 +115,7 @@ async def post_list(kemono: Kemono) -> None:
     Log.info('\n'.join(('\n', *listing)) or '\nNothing')
 
 
-async def post_scan_id(kemono: Kemono) -> None:
+async def post_scan_id(kemono: Kemono, *, download=False) -> None:
     results: list[ScannedPost] = []
     creator_id = Config.creator_id
     for post_id in Config.post_ids:
@@ -116,18 +123,30 @@ async def post_scan_id(kemono: Kemono) -> None:
         posts = await kemono.scan_posts([link])
         results.extend(posts)
         creator_id = creator_id or int(posts[0]['post']['user'])
-    _process_scan_results(kemono, results)
+    await _process_scan_results(kemono, results, download=download)
 
 
-async def post_scan_links(kemono: Kemono, *, links: list[PostPageScanResult] | None = None) -> None:
+async def post_scan_links(kemono: Kemono, *, links: list[PostPageScanResult] | None = None, download=False) -> None:
     results: list[ScannedPost] = await kemono.scan_posts(links)
-    _process_scan_results(kemono, results)
+    await _process_scan_results(kemono, results, download=download)
 
 
-async def post_scan_file(kemono: Kemono) -> None:
+async def post_scan_file(kemono: Kemono, *, download=False) -> None:
     with open(Config.src_file, 'rt', encoding=UTF8) as infile_posts:
         post_links = _parse_posts_file(kemono, infile_posts)
-    return await post_scan_links(kemono, links=post_links)
+    return await post_scan_links(kemono, links=post_links, download=download)
+
+
+async def post_rip_id(kemono: Kemono) -> None:
+    return await post_scan_id(kemono, download=True)
+
+
+async def post_rip_links(kemono: Kemono, *, links: list[PostPageScanResult] | None = None) -> None:
+    return await post_scan_links(kemono, links=links, download=True)
+
+
+async def post_rip_file(kemono: Kemono) -> None:
+    return await post_scan_file(kemono, download=True)
 
 
 def _config_write(config_path: pathlib.Path) -> None:
@@ -140,7 +159,7 @@ def _config_write(config_path: pathlib.Path) -> None:
 
 async def config_create(*_) -> None:  # noqa RUF029
     config_path = Config.default_config_path()
-    if config_path.exists():
+    if config_path.is_file():
         ans = 'q'
         while ans not in 'YyNn10':
             ans = input(f'File \'{config_path.name}\' already exists! Overwrite? [y/N] ')
@@ -165,6 +184,9 @@ async def launch(kemono: Kemono) -> None:
         'post scan id': post_scan_id,
         'post scan link': post_scan_links,
         'post scan file': post_scan_file,
+        'post rip id': post_rip_id,
+        'post rip link': post_rip_links,
+        'post rip file': post_rip_file,
         'config create': config_create,
         'config modify': config_modify,
     }

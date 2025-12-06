@@ -10,17 +10,20 @@ from __future__ import annotations
 
 import pathlib
 import random
+import sys
 from asyncio import sleep
 from collections.abc import Iterable
 
-from aiohttp import ClientConnectorError, ClientResponse, ClientResponseError, ClientSession, ClientTimeout, TCPConnector
+from aiofile import async_open
+from aiohttp import ClientConnectorError, ClientPayloadError, ClientResponse, ClientSession, ClientTimeout, TCPConnector
 from aiohttp_socks import ProxyConnector
+from yarl import URL
 
 from kemono_ripper.util import UAManager
 
-from .actions import APIAction, GetCreatorPostAction, GetCreatorPostsAction, GetCreatorsAction, GetFreePostAction
-from .defs import CONNECT_RETRY_DELAY, POSTS_PER_PAGE, DownloadMode, Mem
-from .exceptions import RequestError, ValidationError
+from .actions import APIDownloadAction, APIFetchAction, GetCreatorPostAction, GetCreatorPostsAction, GetCreatorsAction, GetFreePostAction
+from .defs import CONNECT_RETRY_DELAY, MAX_JOBS, POSTS_PER_PAGE, DownloadMode, Mem
+from .exceptions import KemonoErrorCodes, RequestError, ValidationError
 from .filters import Filter
 from .logging import Log, set_logger
 from .options import KemonoOptions
@@ -50,12 +53,13 @@ class Kemono:
         self._filters: tuple[Filter, ...] = options['filters']
         self._download_mode: DownloadMode = options['download_mode']
         # ensure correct args
-        assert Log
-        assert next(reversed(self._dest_base.parents)).is_dir()
-        assert isinstance(self._download_mode, DownloadMode)
-        assert self._api_address
-        assert self._service
-        assert self._max_jobs > 0
+        assert Log, 'Logger is not initialized!'
+        assert next(reversed(self._dest_base.parents)).is_dir(), f'Inavlid base destination folder \'{self._dest_base!s}\'!'
+        assert isinstance(self._download_mode, DownloadMode), f'Invalid download mode \'{self._download_mode!s}\'!'
+        assert self._api_address in APIAddress.__args__, f'Invalid API address \'{self._api_address!s}\'!'
+        assert self._service in APIService.__args__, f'Invalid service \'{self._service!s}\'!'
+        assert self._retries >= 0, f'Invalid retries value \'{self._retries!s}\'!'
+        assert 0 < self._max_jobs <= MAX_JOBS, f'Invalid max jobs value \'{self._max_jobs!s}\', must be 1..{MAX_JOBS:d}!'
 
     async def __aenter__(self) -> Kemono:
         return self
@@ -92,7 +96,7 @@ class Kemono:
                 session.cookie_jar.update_cookies({ck: cv})
         return session
 
-    async def _wrap_request(self, action: APIAction) -> APIResponse:
+    async def _wrap_fetch_request(self, action: APIFetchAction) -> APIResponse:
         assert self._session is not None
         if self._nodelay is False:
             await RequestQueue.until_ready(str(action.get_url()))
@@ -100,26 +104,17 @@ class Kemono:
         response_content = await response.content.read()
         return await action.process_response_content(response_content)
 
-    async def _query_api(self, action: APIAction) -> APIResponse:
+    async def _query_api(self, action: APIFetchAction) -> APIResponse:
         if self._session is None:
             self._session = self._make_session()
 
         retries = 0
-        response: ClientResponse | None = None
         while retries <= self._retries:
-            response = None
             try:
                 Log.trace(f'Sending API request: {action!s}')
-                result = await self._wrap_request(action)
+                result = await self._wrap_fetch_request(action)
                 return result
             except Exception as e:
-                if response is not None and '404.' in str(response.url):
-                    Log.error('ERROR: 404')
-                    assert False
-                else:
-                    Log.error(f'[{retries + 1:d}] fetch_html exception status '
-                              f'{f"{response.status:d}" if response is not None else "???"}: '
-                              f'\'{e.message if isinstance(e, ClientResponseError) else str(e)}\'')
                 if isinstance(e, RequestError):
                     raise
                 if not isinstance(e, ClientConnectorError):
@@ -130,12 +125,54 @@ class Kemono:
 
         if retries > self._retries:
             Log.error('Unable to connect. Aborting')
-        elif response is None:
-            Log.error('ERROR: Failed to receive any data')
         raise ConnectionError
 
-    async def _download(self) -> pathlib.Path:
-        return self._dest_base
+    async def _wrap_download_request(self, action: APIDownloadAction, **kwargs) -> ClientResponse:
+        assert self._session is not None
+        if self._nodelay is False:
+            await RequestQueue.until_ready(str(action.get_url()))
+        response = await self._session.request(**action.as_api_request_data(), **kwargs)
+        return response
+
+    async def _download(self, action: APIDownloadAction, file_path: pathlib.Path) -> tuple[int, KemonoErrorCodes]:
+        if self._session is None:
+            self._session = self._make_session()
+
+        retries = 0
+        bytes_written = 0
+        while retries <= self._retries:
+            r: ClientResponse | None = None
+            try:
+                file_size = file_path.stat().st_size if file_path.is_file() else 0
+                hkwargs: dict[str, dict[str, str]] = {'headers': {'Range': f'bytes={file_size:d}-'} if file_size > 0 else {}}
+                async with await self._wrap_download_request(action, **hkwargs) as r:
+                    if r.status == 404:
+                        Log.error(f'Got 404 for {action.get_url().human_repr()}...!')
+                        # retries = self._retries
+                        raise RequestError(KemonoErrorCodes.KEMONO_ERROR_CODE_GENERIC)
+                    content_len: int = r.content_length or 0
+                    assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url().human_repr()}! Retrying...'
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
+                    async with async_open(file_path, mode='wb') as output_file:
+                        async for chunk in r.content.iter_chunked(128 * Mem.KB):
+                            await output_file.write(chunk)
+                            bytes_written += len(chunk)
+                return bytes_written, KemonoErrorCodes.ESUCCESS
+            except Exception as e:
+                Log.error(f'{file_path.name}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
+                if (r is None or r.status != 403) and not isinstance(e, (ClientPayloadError, ClientConnectorError)):
+                    retries += 1
+                    local_path = '/'.join(file_path.parts[-3:])
+                    Log.error(f'{local_path}: error #{retries:d}...')
+                if r is not None and not r.closed:
+                    r.close()
+                if retries <= self._retries:
+                    await sleep(random.uniform(*CONNECT_RETRY_DELAY))
+                continue
+
+        if retries > self._retries:
+            Log.error('Unable to connect. Aborting')
+        raise ConnectionError
 
     async def _scan_post(self, link: PostPageScanResult) -> ScannedPost:
         assert link.service
@@ -166,6 +203,10 @@ class Kemono:
             all_posts.extend(posts)
             offset += POSTS_PER_PAGE
         return all_posts
+
+    async def download_url(self, url: URL, file_path: pathlib.Path) -> tuple[int, KemonoErrorCodes]:
+        result = await self._download(APIDownloadAction(url), file_path)
+        return result
 
 #
 #

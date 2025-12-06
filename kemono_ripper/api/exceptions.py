@@ -10,6 +10,7 @@ from enum import IntEnum
 
 
 class KemonoErrorCodes(IntEnum):
+    ESUCCESS = 0
     EINTERNAL = -1
     EARGS = -2
     EAGAIN = -3
@@ -39,6 +40,7 @@ class KemonoErrorCodes(IntEnum):
 
 
 KEMONO_ERROR_DESCRIPTION: dict[KemonoErrorCodes, tuple[str, str]] = {
+    KemonoErrorCodes.ESUCCESS: ('ESUCCESS', 'Opration completed successfully'),
     KemonoErrorCodes.EINTERNAL: ('EINTERNAL',
                                  ('An internal error has occurred. Please submit a bug report, '
                                   'detailing the exact circumstances in which this error occurred')),

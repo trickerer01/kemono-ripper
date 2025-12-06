@@ -109,7 +109,7 @@ class ScannedPostPost(TypedDict):
     prev: str | None
 
 
-class ScannedPostAttachment(TypedDict):  # TODO: validate
+class ScannedPostAttachment(TypedDict):
     name: str
     path: str
 
@@ -132,7 +132,7 @@ class ScannedPostProps(TypedDict):
 
 class ScannedPost(TypedDict):
     post: ScannedPostPost
-    attachments: list[ScannedPostAttachment]
+    attachments: list[ScannedPostAttachment]  # TODO: validate
     previews: list[ScannedPostPreview]
     videos: list[dict]  # TODO: validate
     props: ScannedPostProps
