@@ -83,6 +83,7 @@ HELP_ARG_SKIP_CACHE = 'Always query API even if local creators dump exists'
 HELP_ARG_INDENT = f'Saved file indentation. Default is \'{JSON_INDENT_DEFAULT:d}\''
 HELP_ARG_POST_ID = 'Post id as seen in web page address (integer)'
 HELP_ARG_CREATOR_ID = 'Creator id as seen in web page address (integer)'
+HELP_ARG_SAME_CREATOR = 'If all post have same creator this flag will speedup scanning process x2, (otherwise you\'ll get wrong results!)'
 HELP_ARG_POST_URL = 'Full url to post page'
 HELP_ARG_POST_FILE = 'Full path to target text file'
 

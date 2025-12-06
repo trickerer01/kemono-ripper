@@ -33,6 +33,7 @@ from .defs import (
     HELP_ARG_POST_URL,
     HELP_ARG_PROXY,
     HELP_ARG_RETRIES,
+    HELP_ARG_SAME_CREATOR,
     HELP_ARG_SERVICE,
     HELP_ARG_SKIP_CACHE,
     HELP_ARG_TIMEOUT,
@@ -315,11 +316,13 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     ppsi.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]}'
         f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN_ID]}'
-        f' #[options...] [--creator-id #user_id] #post_id [post_id ...]'
+        f' #[options...] [--creator-id #user_id | --same-creator] #post_id [post_id ...]'
     )
     ppsig1 = ppsi.add_argument_group(title='options')
     ppsig1.add_argument('post_id', metavar='post_id [post_id ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_ID, type=positive_nonzero_int)
-    ppsig1.add_argument('--creator-id', nargs=OPTIONAL, default=0, help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
+    ppsigm1 = ppsig1.add_mutually_exclusive_group(required=False)
+    ppsigm1.add_argument('--creator-id', metavar='creator_id', nargs=OPTIONAL, help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
+    ppsigm1.add_argument('--same-creator', action=ACTION_STORE_TRUE, help=HELP_ARG_SAME_CREATOR)
     #   scan URL
     ppsu = parsers[PARSER_TITLE_POST_SCAN_URL]
     ppsu.usage = (

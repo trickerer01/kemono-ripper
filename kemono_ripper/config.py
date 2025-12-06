@@ -58,6 +58,8 @@ class BaseConfig:
         '''post scan id, post rip id'''
         self.creator_id: int | None = None
         '''post scan id, post rip id'''
+        self.same_creator: bool | None = None
+        '''same creator for all posts being scanned see `post list`'''
         self.links: list[PostPageScanResult] | None = None
         '''post scan link, post rip link'''
         self.pattern: str | None = None

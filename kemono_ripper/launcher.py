@@ -132,7 +132,8 @@ async def post_scan_id(kemono: Kemono, *, download=False) -> None:
         link = PostPageScanResult(post_id, creator_id, kemono.api_service, kemono.api_address)
         posts = await kemono.scan_posts([link])
         results.extend(posts)
-        creator_id = creator_id or int(posts[0]['post']['user'])
+        if Config.same_creator:
+            creator_id = creator_id or int(posts[0]['post']['user'])
     await _process_scan_results(kemono, results, download=download)
 
 
