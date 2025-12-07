@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pathlib
 import random
+import re
 from asyncio import Lock as AsyncLock
 from asyncio import Semaphore
 from asyncio.queues import Queue as AsyncQueue
@@ -425,6 +426,11 @@ class KemonoDownloader:
                 bs = BeautifulSoup(content, 'html.parser')
                 for tag_type, tag_name in SUPPORTED_TAGS:
                     bs_tags = bs.find_all(tag_type)
+                    check_mega_keys = tag_type == 'a'
+                    keys_mega: list[str] = [
+                        re.search(r'(#?\w{28,})', _.string).group(1) for _ in bs.find_all(text=re.compile(r'#?\w{28,}'))
+                    ] if check_mega_keys else []
+                    key_idx = 0
                     for bs_tag in bs_tags:
                         url = URL(bs_tag[tag_name])
                         url_purged = url.with_query('')
@@ -434,6 +440,10 @@ class KemonoDownloader:
                             else:
                                 link_idx += 1
                                 link_name = f'unk_{link_idx:02d}'
+                                if key_idx < len(keys_mega) and url.host == SITE_MEGA and '#' not in url_purged.path:
+                                    key = keys_mega[key_idx]
+                                    url_purged = url_purged.with_fragment(key[1 if '#' in key else 0:])
+                                    key_idx += 1
                             links_dict.update({url_purged: link_name})
 
             if file := post['file']:

@@ -9,7 +9,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 # read links from file +
 # download files/attachments +
 # config to store values, default +
-# downloader of external links (mega, gdrive, etc.)
+# downloader of external links (mega, gdrive, etc.) +
 # cache last downloaded post id in config (per creator) for rescan
 #
 

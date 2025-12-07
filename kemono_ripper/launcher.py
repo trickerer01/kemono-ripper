@@ -8,6 +8,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 import json
 import pathlib
+import re
 import sys
 from argparse import ArgumentError
 from collections.abc import Callable, Coroutine, Iterable, Sequence
@@ -16,7 +17,7 @@ from bs4 import BeautifulSoup
 
 from .api import APIAddress, Creator, Kemono, PostPageScanResult, ScannedPost, ScannedPostPost
 from .config import Config
-from .defs import CREATORS_NAME_DEFAULT, UTF8
+from .defs import CREATORS_NAME_DEFAULT, SITE_MEGA, UTF8
 from .downloader import KemonoDownloader
 from .logger import Log
 from .util import HTTP_PREFIX, HTTPS_PREFIX
@@ -48,6 +49,12 @@ async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], 
         if content:
             bs = BeautifulSoup(content, 'html.parser')
             refs: list[str] = [str(_['href']) for _ in bs.find_all('a')]
+            refs_mega: list[str] = [_ for _ in refs if SITE_MEGA in _ and '#' not in _]
+            keys_mega: list[str] = [_.string for _ in bs.find_all(text=re.compile(r'#?\w{28,}'))]
+            if len(refs_mega) == len(keys_mega):
+                for i in range(len(refs_mega)):
+                    key = re.search(r'(#?\w{28,})', keys_mega[i]).group(1)
+                    refs[refs.index(refs_mega[i])] = f'{refs_mega[i]}{"" if key.startswith("#") else "#"}{key}'
             refs.extend(f'https://{kemono.api_address}{_["src"]!s}' for _ in bs.find_all('img'))
             links += ('\n' if links and refs else '') + '\n '.join(f'link_{i:d}: {ref}' for i, ref in enumerate(refs))
         post_str = f'[{user}:{pid}] {title}:\n\'{content}\'\nlinks:\n {links}\n'
