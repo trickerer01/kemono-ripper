@@ -11,20 +11,27 @@ from __future__ import annotations
 import pathlib
 import random
 from asyncio import Lock as AsyncLock
+from asyncio import Semaphore
 from asyncio.queues import Queue as AsyncQueue
 from asyncio.tasks import as_completed, gather, sleep
 from collections import defaultdict, deque
 from collections.abc import Iterable, Sequence
 from enum import IntEnum
-from typing import Final, Literal, NamedTuple
+from typing import Final, Literal, NamedTuple, Protocol
 
 from bs4 import BeautifulSoup
 from yarl import URL
 
 from .api import APIAddress, Kemono, KemonoErrorCodes, Mem, ScannedPost, ScannedPostPost
-from .config import Config
+from .config import Config, ExternalURLHandlerConfig, MegaConfig
+from .defs import SITE_MEGA
 from .logger import Log
 from .util import sanitize_filename
+
+try:
+    import mega_download as handler_mega
+except ImportError:
+    handler_mega = None
 
 __all__ = ('KemonoDownloader',)
 
@@ -53,6 +60,8 @@ class DownloadResult(IntEnum):
     def __str__(self) -> str:
         return f'{self.name} (0x{self.value:02X})'
 
+    __repr__ = __str__
+
 
 class State(IntEnum):
     NEW = 0
@@ -66,6 +75,11 @@ class State(IntEnum):
     DONE = 8
     FAILED = 9
 
+    def __str__(self) -> str:
+        return f'{self.name} (0x{self.value:02X})'
+
+    __repr__ = __str__
+
 
 class Flags(IntEnum):
     NONE = 0x0
@@ -77,16 +91,21 @@ class Flags(IntEnum):
 
 class Status:
     def __init__(self) -> None:
+        self.flags: Flags = Flags.NONE
         self.result: DownloadResult = DownloadResult.UNKNOWN
         self.state: State = State.NEW
+
+    def __str__(self) -> str:
+        return f'state: {self.state!s}, result: {self.result!s}'
+
+    __repr__ = __str__
 
 
 class PostLinkDownloadInfo(NamedTuple):
     name: str
     url: URL
     path: pathlib.Path
-    flags: Flags = Flags.NONE
-    status: Status = Status()
+    status: Status
 
     @property
     def local_path(self) -> str:
@@ -99,11 +118,77 @@ class PostDownloadInfo(NamedTuple):
     creator_name: str
     original_post: ScannedPost
     links: dict[str, PostLinkDownloadInfo]
-    completed: list[PostLinkDownloadInfo] = []
-    status: Status = Status()
+    completed: list[PostLinkDownloadInfo]
+    status: Status
 
     def __hash__(self) -> int:
         return hash(self.post_id)
+
+
+# external downloaders
+class ExternalURLHandler(Protocol):
+    _semaphore: Semaphore
+
+    @staticmethod
+    async def run(url: str, config: ExternalURLHandlerConfig) -> list[pathlib.Path]: ...
+    @staticmethod
+    def name() -> str: ...
+    @staticmethod
+    def app_name() -> str: ...
+
+
+class MegaURLHandler:
+    _semaphore: Semaphore = Semaphore(1)
+
+    @staticmethod
+    async def run(url: str, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
+        async with MegaURLHandler._semaphore:
+            return await handler_mega.MegaDownloader([url], config).run()
+
+    @staticmethod
+    def name() -> str:
+        return 'Mega'
+
+    @staticmethod
+    def app_name() -> str:
+        return handler_mega.APP_NAME
+
+
+class ExternalURLDownloader:
+    def __init__(self, url: URL) -> None:
+        self._url = url
+
+    @property
+    def _handler(self) -> ExternalURLHandler:
+        return EXTERNAL_URL_HANDLERS[self._url.host]
+
+    def valid(self) -> bool:
+        return self._url.host in EXTERNAL_URL_HANDLERS
+
+    def name(self) -> str:
+        return self._handler.name() if self.valid() else 'None'
+
+    def app_name(self) -> str:
+        return self._handler.app_name() if self.valid() else 'Unknown'
+
+    async def download(self, *, plink_id: str, url: str, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
+        try:
+            assert self.valid()
+            mresults = await self._handler.run(url, config) if self.valid() else []
+            Log.info(f'{plink_id} \'{self.app_name()}\' has successfully handled {self._url.human_repr()} ({len(mresults)} files)')
+            return mresults
+        except Exception:
+            import traceback
+            Log.error(f'{traceback.format_exc()}\n{plink_id} \'{self.app_name()}\' FAILED to handle {self._url.human_repr()}!')
+            return []
+
+
+def register_external_downloader(host: str, handler: ExternalURLHandler) -> None:
+    EXTERNAL_URL_HANDLERS[host] = handler
+
+
+EXTERNAL_URL_HANDLERS: dict[str, ExternalURLHandler] = {}
+# end external downloaders
 
 
 class KemonoDownloader:
@@ -131,6 +216,9 @@ class KemonoDownloader:
         self._queue_produce.extend(post for _, post in self._post_info.items())
 
         self._orig_count: Final[int] = len(posts)
+
+        if handler_mega:
+            register_external_downloader(SITE_MEGA, MegaURLHandler())
 
     async def __aenter__(self) -> KemonoDownloader:
         return self
@@ -176,7 +264,7 @@ class KemonoDownloader:
             skipped = len([_ for _ in results if _ == DownloadResult.FAIL_SKIPPED])
             filtered = len([_ for _ in results if _ == DownloadResult.FAIL_FILTERED_OUTER])
             unsupported = len([_ for _ in results if _ == DownloadResult.FAIL_UNSUPPORTED])
-            if len(post.links) > unsupported:
+            if len(results) > unsupported:
                 Log.info(f'[queue] post {pid}: Done: {len(post.links):d} links: {success:d} downloaded, {fail_tries:d} failed,'
                          f' {skipped:d} skipped, {filtered:d} filtered out, {exists:d} already exists, {fail_404:d} not found,'
                          f' {unsupported:d} unsupported')
@@ -196,16 +284,20 @@ class KemonoDownloader:
         await self._at_post_link_start(post, plink)
         plink_id = f'[{post.creator_id}:{post.post_id}] \'{plink.name}\''
         plink.status.state = State.SCANNING
-        supported = self.is_link_supported(plink.url)
-        # if not supported: # TODO: mega downloader, gdrive downloader
-        if not supported:
-            Log.warn(f'{plink_id}: Skipping unsupported link format {plink.url.human_repr()}...')
+        url_str = plink.url.human_repr()
+        handler_ex = ExternalURLDownloader(plink.url)
+        if handler_ex.valid():
+            Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
+            mresults = await handler_ex.download(plink_id=plink_id, url=url_str, config=MegaConfig(Config, dest_base=plink.path))
+            dresult = DownloadResult.SUCCESS if mresults and all(bool(_) and _.is_file() for _ in mresults) else DownloadResult.FAIL_RETRIES
+        elif not self.is_link_supported(plink.url):
+            Log.warn(f'{plink_id}: Skipping unsupported link format {url_str}...')
             dresult = DownloadResult.FAIL_UNSUPPORTED
         elif plink.path.is_file():
             Log.warn(f'{plink_id}: File {plink.local_path} already exists! Skipped.')
             dresult = DownloadResult.FAIL_ALREADY_EXISTS
         else:
-            Log.info(f'{plink_id} Processing {plink.url.human_repr()} => {plink.local_path}')
+            Log.info(f'{plink_id} Processing {url_str} => {plink.local_path}')
             plink.status.state = State.DOWNLOADING
             await self.add_to_writes(post, plink, True)
             bytes_written, ec = await self._kemono.download_url(plink.url, plink.path)
@@ -356,9 +448,9 @@ class KemonoDownloader:
                 else:
                     link_full = link_base
                 lpath = Config.dest_base / user / pid / sanitize_filename(next_file_name(name))
-                links[name] = PostLinkDownloadInfo(name=name, url=link_full, path=lpath)
+                links[name] = PostLinkDownloadInfo(name, link_full, lpath, Status())
 
-            self._post_info[pid] = PostDownloadInfo(pid, int(user), user, spost, links)
+            self._post_info[pid] = PostDownloadInfo(pid, int(user), user, spost, links, [], Status())
 
             links_str = '\n'.join(f' {pldi.url.human_repr()} => {pldi.local_path}' for title, pldi in links.items())
             post_strings.append(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links:\n{links_str}')

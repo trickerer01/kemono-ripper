@@ -112,7 +112,7 @@ async def creator_rip(kemono: Kemono) -> None:
         service = lpost['service']
         link = PostPageScanResult(post_id, Config.creator_id, service, kemono.api_address)
         links.append(link)
-    return await post_rip_links(kemono, links=links)
+    return await post_rip_url(kemono, links=links)
 
 
 async def post_list(kemono: Kemono) -> None:
@@ -152,7 +152,7 @@ async def post_rip_id(kemono: Kemono) -> None:
     return await post_scan_id(kemono, download=True)
 
 
-async def post_rip_links(kemono: Kemono, *, links: list[PostPageScanResult] | None = None) -> None:
+async def post_rip_url(kemono: Kemono, *, links: list[PostPageScanResult] | None = None) -> None:
     return await post_scan_url(kemono, links=links, download=True)
 
 
@@ -197,7 +197,7 @@ async def launch(kemono: Kemono) -> None:
         'post scan url': post_scan_url,
         'post scan file': post_scan_file,
         'post rip id': post_rip_id,
-        'post rip link': post_rip_links,
+        'post rip url': post_rip_url,
         'post rip file': post_rip_file,
         'config create': config_create,
         'config modify': config_modify,

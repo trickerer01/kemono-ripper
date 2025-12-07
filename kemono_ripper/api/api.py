@@ -164,6 +164,7 @@ class Kemono:
         while try_num <= self._retries:
             r: ClientResponse | None = None
             try:
+                # TODO: self._download_mode
                 file_size = file_path.stat().st_size if file_path.is_file() else 0
                 hkwargs: dict[str, dict[str, str]] = {'headers': {'Range': f'bytes={file_size:d}-'} if file_size > 0 else {}}
                 async with await self._wrap_request(action, try_num=try_num, session=self._session, **hkwargs) as r:

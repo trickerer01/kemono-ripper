@@ -8,17 +8,16 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 import inspect
 import pathlib
-from typing import TypedDict
+from typing import Protocol, TypedDict
 
 from aiohttp import ClientTimeout
 
-from .defs import CONFIG_NAME_DEFAULT, CONNECT_TIMEOUT_SOCKET_READ
+from .defs import CONFIG_NAME_DEFAULT, CONNECT_TIMEOUT_SOCKET_READ, NumRange
 
 if False is True:  # for hinting only
     from .api import APIAddress, APIService, PostPageScanResult  # noqa: I001
-    from .defs import NumRange
 
-__all__ = ('Config',)
+__all__ = ('Config', 'ExternalURLHandlerConfig', 'MegaConfig')
 
 
 class ConfigJSON(TypedDict):
@@ -51,7 +50,6 @@ class BaseConfig:
         self.subcommand_1: str = ''
         self.subcommand_2: str = ''
         self.subcommand_3: str = ''
-        self.subcommand_4: str = ''  # see self.src_file
         self.api_address: APIAddress | None = None
         self.service: APIService | None = None
         self.post_ids: list[int] | None = None
@@ -123,6 +121,47 @@ class BaseConfig:
     def default_config_path() -> pathlib.Path:
         root_path = pathlib.Path(__file__).parent.parent
         return root_path / CONFIG_NAME_DEFAULT
+
+
+class ExternalURLHandlerConfig(Protocol):
+    filter_filesize: NumRange | None
+    filter_filename: str | None
+    dump_links: bool | None
+    dump_structure: bool | None
+    links_file: pathlib.Path | None
+    links: list[str] | None
+    max_jobs: int | None
+    dest_base: pathlib.Path | None
+    proxy: str | None
+    download_mode: str | None
+    logging_flags: int
+    nocolors: bool | None
+    timeout: ClientTimeout | None
+    retries: int
+    extra_headers: list[tuple[str, str]] | None
+    extra_cookies: list[tuple[str, str]] | None
+    nodelay: bool
+
+
+class MegaConfig:
+    def __init__(self, config: BaseConfig, **overrides) -> None:
+        self.dump_links: bool | None = False
+        self.dump_structure: bool | None = False
+        self.links_file: pathlib.Path | None = None
+        self.filter_filesize: NumRange | None = overrides.pop('filter_filesize', config.filter_filesize)
+        self.filter_filename: str | None = overrides.pop('filter_filename', config.filter_filename)
+        self.links: list[str] | None = overrides.pop('links', config.links)
+        self.max_jobs: int | None = overrides.pop('max_jobs', config.max_jobs)
+        self.dest_base: pathlib.Path | None = overrides.pop('dest_base', config.dest_base)
+        self.proxy: str | None = ''
+        self.download_mode: str | None = overrides.pop('download_mode', config.download_mode)
+        self.logging_flags: int = overrides.pop('logging_flags', config.logging_flags)
+        self.nocolors: bool | None = overrides.pop('nocolors', config.disable_log_colors)
+        self.timeout: ClientTimeout | None = overrides.pop('timeout', config.timeout)
+        self.retries: int = overrides.pop('retries', config.retries)
+        self.extra_headers: list[tuple[str, str]] | None = overrides.pop('extra_headers', config.extra_headers)
+        self.extra_cookies: list[tuple[str, str]] | None = overrides.pop('extra_cookies', config.extra_cookies)
+        self.nodelay: bool = overrides.pop('nodelay', config.nodelay)
 
 
 Config: BaseConfig = BaseConfig()
