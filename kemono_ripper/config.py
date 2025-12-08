@@ -64,6 +64,10 @@ class BaseConfig:
         '''creator list pattern'''
         self.skip_cache: bool | None = None
         '''creator list cache'''
+        self.indent: int | None = None
+        '''indentation for saved json files'''
+        self.prune: bool | None = None
+        '''prune extra info from dumps'''
         # new
         self.filter_filesize: NumRange | None = None
         self.filter_filename: str | None = None

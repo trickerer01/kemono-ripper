@@ -32,6 +32,7 @@ from .defs import (
     HELP_ARG_POST_ID,
     HELP_ARG_POST_URL,
     HELP_ARG_PROXY,
+    HELP_ARG_PRUNE,
     HELP_ARG_RETRIES,
     HELP_ARG_SAME_CREATOR,
     HELP_ARG_SERVICE,
@@ -269,7 +270,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     pclg1 = pcl.add_argument_group(title='options')
     pclg1.add_argument('pattern', help=HELP_ARG_CREATOR_NAME_PATTERN, type=str)
-    pclg1.add_argument('-n', '--skip-cache', action=ACTION_STORE_TRUE, help=HELP_ARG_SKIP_CACHE)
+    pclg1.add_argument('--skip-cache', action=ACTION_STORE_TRUE, help=HELP_ARG_SKIP_CACHE)
     #  dump
     pcd = parsers[PARSER_TITLE_CREATOR_DUMP]
     pcd.usage = (
@@ -277,7 +278,8 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
         f' #[options...]'
     )
     pcdg1 = pcd.add_argument_group(title='options')
-    pcdg1.add_argument('-i', '--indent', metavar='1..4', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
+    pcdg1.add_argument('-i', '--indent', metavar='1..8', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
+    pcdg1.add_argument('--prune', action=ACTION_STORE_TRUE, help=HELP_ARG_PRUNE)
     #  rip
     pcr = parsers[PARSER_TITLE_CREATOR_RIP]
     pcr.usage = (

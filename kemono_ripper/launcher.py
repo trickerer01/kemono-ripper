@@ -95,8 +95,12 @@ def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageS
 
 async def creator_dump(kemono: Kemono) -> None:
     results = await kemono.list_creators()
+    results_sorted = sorted(results, key=lambda c: c['name'].lower())
     with open(Config.dest_base / CREATORS_NAME_DEFAULT, 'wt', encoding=UTF8, newline='\n') as outfile_creators:
-        json.dump(sorted(results, key=lambda c: c['name'].lower()), outfile_creators, ensure_ascii=False, indent=4)
+        json.dump(
+            [(creator['name'], creator['id'], creator['service']) for creator in results_sorted]
+            if Config.prune else results_sorted, outfile_creators, ensure_ascii=False, indent=Config.indent,
+        )
         outfile_creators.write('\n')
 
 
@@ -170,7 +174,7 @@ async def post_rip_file(kemono: Kemono) -> None:
 def _config_write(config_path: pathlib.Path) -> None:
     Log.info(f'Writing configuration to {config_path.as_posix()}...')
     with open(config_path, 'wt', encoding=UTF8, newline='\n') as outfile_settings:
-        json.dump(Config.to_json(), outfile_settings, ensure_ascii=False, indent=4)
+        json.dump(Config.to_json(), outfile_settings, ensure_ascii=False, indent=Config.indent)
         outfile_settings.write('\n')
     Log.info('Done')
 

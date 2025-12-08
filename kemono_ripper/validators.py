@@ -167,7 +167,7 @@ def valid_maxjobs(maxjobs_str: str) -> int:
 
 
 def valid_indent(indent_str: str) -> int:
-    return valid_number(indent_str, lb=0, ub=4)
+    return valid_number(indent_str, lb=1, ub=8)
 
 
 def valid_range(range_str: str) -> NumRange:
