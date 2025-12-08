@@ -112,7 +112,7 @@ async def creator_list(kemono: Kemono) -> None:
             results = json.load(infile_creators)
     results = results or await kemono.list_creators()
     matched = [c for c in results if Config.pattern.lower() in c['name'].lower()]
-    Log.info('\n'.join(('\n', *(f'{_["name"]}: {_["id"]}' for _ in matched))) or '\nNothing')
+    Log.info('\n'.join(('\n', *(f'[{_["service"]}] {_["name"]}: {_["id"]}' for _ in matched))) or '\nNothing')
 
 
 async def creator_rip(kemono: Kemono) -> None:
