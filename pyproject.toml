@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'kemono-ripper'
-version = '0.1.27'
+version = '0.9.29'
 authors = [
     {name = 'trickerer01'},
 ]
@@ -44,7 +44,8 @@ dependencies = [
     'beautifulsoup4>=4.9.3',
     'colorama>=0.4.6',
     'fake-useragent>=2.0.3',
-    'yarl>=1.20'
+    'yarl>=1.20',
+    'mega-download @ https://github.com/trickerer01/mega-download/tarball/master#egg=mega-download'
 ]
 [project.optional-dependencies]
 default = []
