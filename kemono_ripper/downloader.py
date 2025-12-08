@@ -346,6 +346,7 @@ class KemonoDownloader:
 
     async def _after_download(self) -> None:
         newline = '\n'
+        Log.info('Done')
         # Log.info(f'\nDone. {self._downloaded_count:d} / {self._orig_count:d} file(s) downloaded, '  # TODO: calculate totals
         #          f'{self._already_exist_count:d} already existed, {self._skipped_count:d} skipped, {self._404_count:d} not found')
         if len(self._queue_produce) > 0:

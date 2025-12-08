@@ -115,12 +115,11 @@ class Kemono:
         return session
 
     async def _wrap_request(self, action: APIAction, try_num: int, **kwargs) -> ClientResponse:
-        session = kwargs.pop('session', self._session)
-        assert session is not None
+        assert self._session is not None
         if self._nodelay is False:
             await RequestQueue.until_ready(action.get_url().human_repr())
         Log.trace(f'[{try_num + 1:d}] Sending API request: {action!s}')
-        response = await session.request(**action.as_api_request_data(), **kwargs)
+        response = await self._session.request(**action.as_api_request_data(), **kwargs)
         return response
 
     async def _query_api(self, action: APIFetchAction) -> APIResponse:
@@ -156,6 +155,12 @@ class Kemono:
         raise ConnectionError
 
     async def _download(self, action: APIDownloadAction, file_path: pathlib.Path) -> tuple[int, KemonoErrorCodes]:
+        if self._download_mode == DownloadMode.SKIP:
+            return 0, KemonoErrorCodes.ESUCCESS
+        elif self._download_mode == DownloadMode.TOUCH:
+            with open(file_path, 'wb'):
+                return 0, KemonoErrorCodes.ESUCCESS
+
         if self._session is None:
             self._session = self._make_session()
 
@@ -164,10 +169,9 @@ class Kemono:
         while try_num <= self._retries:
             r: ClientResponse | None = None
             try:
-                # TODO: self._download_mode
                 file_size = file_path.stat().st_size if file_path.is_file() else 0
                 hkwargs: dict[str, dict[str, str]] = {'headers': {'Range': f'bytes={file_size:d}-'} if file_size > 0 else {}}
-                async with await self._wrap_request(action, try_num=try_num, session=self._session, **hkwargs) as r:
+                async with await self._wrap_request(action, try_num=try_num, **hkwargs) as r:
                     if r.status == 404:
                         Log.error(f'Got 404 for {action.get_url().human_repr()}...!')
                         # try_num = self._retries
@@ -176,7 +180,7 @@ class Kemono:
                     content_len: int = r.content_length or 0
                     assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url().human_repr()}! Retrying...'
                     file_path.parent.mkdir(parents=True, exist_ok=True)
-                    async with async_open(file_path, mode='wb') as output_file:
+                    async with async_open(file_path, 'wb') as output_file:
                         async for chunk in r.content.iter_chunked(128 * Mem.KB):
                             await output_file.write(chunk)
                             bytes_written += len(chunk)
