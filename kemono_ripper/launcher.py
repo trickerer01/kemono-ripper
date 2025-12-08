@@ -129,11 +129,14 @@ async def creator_rip(kemono: Kemono) -> None:
 async def post_list(kemono: Kemono) -> None:
     results = await kemono.list_posts(Config.creator_id)
     listing: list[str] = []
-    for lpost in results:
+    for lpost in reversed(results):
         post_id = lpost['id']
         url = f'https://{kemono.api_address}/{Config.service}/user/{Config.creator_id}/post/{post_id}'
-        listing.append(url)
-    Log.info('\n'.join(('', *listing)) or '\nNothing')
+        msg = (f'{url} \'{lpost["title"]}\', file: \'{lpost["file"]["name"] if lpost["file"] else "None"}\','
+               f' {len(lpost["attachments"]):d} attachments')
+        listing.append(msg)
+    for msg in (f'\n{len(listing):d} posts found for creator {results[0]["user"] if results else Config.creator_id!s}', *listing):
+        Log.info(f'{msg}')
 
 
 async def post_scan_id(kemono: Kemono, *, download=False) -> None:

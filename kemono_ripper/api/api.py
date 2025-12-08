@@ -226,6 +226,7 @@ class Kemono:
         all_posts: list[ListedPost] = []
         offset = 0
         while len(all_posts) % POSTS_PER_PAGE == 0:
+            Log.info(f'Page {offset // POSTS_PER_PAGE + 1:d}...')
             posts: list[ListedPost] = await self._query_api(GetCreatorPostsAction(self._api_address, self._service, creator_id, offset))
             all_posts.extend(posts)
             offset += POSTS_PER_PAGE
