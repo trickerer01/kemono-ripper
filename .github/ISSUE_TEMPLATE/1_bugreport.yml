@@ -15,7 +15,9 @@ body:
     id: description
     attributes:
       label: Provide a well enough worded description
-      placeholder: Provide any additional information, any suggested solutions, and as much context and examples as possible
+      placeholder: Provide any additional information, any suggested solutions, and as much context and examples as possible |
+        Do NOT post direct links to kemono here, instead post api address (kemono.cr, coomer.su, etc.), |
+        service (patreon, gumroad, etc.), creator id and post id separately
     validations:
       required: true
   - type: textarea

@@ -1,7 +1,7 @@
-name: Request a feature
-description: Request a new functionality
-title: "[Feature] ISSUE_TITLE"
-labels: [enhancement]
+name: Ask a question
+description: Ask a question related to this project
+title: "[Question] ISSUE_TITLE"
+labels: [question]
 
 body:
   - type: checkboxes
@@ -11,11 +11,17 @@ body:
       options:
         - label: I understand that my issue may get **closed without notice** if I *intentionally* remove or skip any mandatory\* field
           required: true
-  - type: textarea
-    id: description
+  - type: markdown
     attributes:
-      label: Provide a well enough worded description
-      placeholder: Provide any additional information, any suggested solutions, and as much context and examples as possible |
+      value: |
+        ### Make sure you are **only** asking a question and not reporting a bug or requesting a feature.
+        If your question contains "isn't working" or "can you add", this is most likely the wrong template.
+        If you are in doubt whether this is the right template, **USE ANOTHER TEMPLATE**!
+  - type: textarea
+    id: question
+    attributes:
+      label: Provide a well enough worded question
+      placeholder: Provide any additional information and as much context as possible |
         Do NOT post direct links to kemono here, instead post api address (kemono.cr, coomer.su, etc.), |
         service (patreon, gumroad, etc.), creator id and post id separately
     validations:
