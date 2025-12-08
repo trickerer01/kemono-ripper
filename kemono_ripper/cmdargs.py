@@ -393,8 +393,10 @@ def prepare_arglist(args: Sequence[str]) -> None:
         parsed_value = getattr(parsed, pp)
         parser_default = getattr(parsed, PARSER_PARAM_PARSER_TYPE).get_default(pp)
         if param in vars(Config):
-            if not getattr(Config, param) or (parsed_value and parsed_value != parser_default):
-                setattr(Config, param, parsed_value or getattr(Config, param))
+            cvalue = getattr(Config, param)
+            if not cvalue or (parsed_value and parsed_value != parser_default):
+                svalue = parsed_value if cvalue is None else (parsed_value or cvalue)
+                setattr(Config, param, svalue)
         elif param not in (PARSER_PARAM_PARSER_TYPE,):
             Log.error(f'Argument list param {param} was not consumed!')
 
