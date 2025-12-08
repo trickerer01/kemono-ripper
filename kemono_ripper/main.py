@@ -33,7 +33,7 @@ class ErrorCodes:
 
 def at_startup(args: Sequence[str]) -> None:
     """Inits logger. Reports python version and run options"""
-    argv_set = set(args)
+    argv_set = set(args or ())
     parse_logging_args(args)
     Log.init()
     if argv_set.intersection({'--version', '--help'}):

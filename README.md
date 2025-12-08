@@ -14,8 +14,8 @@
 ##### Install as a module
 - `cd kemono-ripper`
 - `python -m pip install .`
-- `python -m kemono_ripper [options...]`
-  - where `URL` is a full links to the kemono URL
+- `python -m kemono_ripper [options...]` OR simply
+- `kemono-ripper [options...]`
 ##### Without installing
 - `cd kemono-ripper`
 - Run either:

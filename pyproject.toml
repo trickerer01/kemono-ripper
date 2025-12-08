@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'kemono-ripper'
-version = '0.9.32'
+version = '0.9.33'
 authors = [
     {name = 'trickerer01'},
 ]
@@ -59,7 +59,7 @@ Documentation = 'https://github.com/trickerer01/kemono-ripper#readme'
 Tracker = 'https://github.com/trickerer01/kemono-ripper/issues'
 
 [project.scripts]
-main_sync = 'kemono_ripper:main'
+kemono-ripper = 'kemono_ripper:main'
 
 [tool.ruff]
 line-length = 140
