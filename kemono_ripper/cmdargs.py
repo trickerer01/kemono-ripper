@@ -359,7 +359,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
         f' #[options...] [--creator-id #user_id] #post_id [post_id ...]'
     )
     pprig1 = ppri.add_argument_group(title='options')
-    pprig1.add_argument('post_id', metavar='post_id [post_id ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_ID, type=positive_nonzero_int)
+    pprig1.add_argument('post_id', metavar='post_id [post_id ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_ID)
     pprig1.add_argument('--creator-id', nargs=OPTIONAL, default=0, help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
     #   rip URL
     ppru = parsers[PARSER_TITLE_POST_RIP_URL]
