@@ -171,7 +171,7 @@ async def post_rip_file(kemono: Kemono) -> None:
     return await post_scan_file(kemono, download=True)
 
 
-def _config_write(config_path: pathlib.Path) -> None:
+async def _config_write(config_path: pathlib.Path) -> None:  # noqa RUF029
     Log.info(f'Writing configuration to {config_path.as_posix()}...')
     with open(config_path, 'wt', encoding=UTF8, newline='\n') as outfile_settings:
         json.dump(Config.to_json(), outfile_settings, ensure_ascii=False, indent=Config.indent)
@@ -179,23 +179,24 @@ def _config_write(config_path: pathlib.Path) -> None:
     Log.info('Done')
 
 
-async def config_create(*_) -> None:  # noqa RUF029
+async def config_create(*_) -> None:
     config_path = Config.default_config_path()
     if config_path.is_file():
         ans = 'q'
         while ans not in 'YyNn10':
             ans = input(f'File \'{config_path.name}\' already exists! Overwrite? [y/N] ')
         if ans in 'Nn0':
+            Log.info('Aborted')
             return
-    _config_write(config_path)
+    await _config_write(config_path)
 
 
-async def config_modify(*_) -> None:  # noqa RUF029
+async def config_modify(*_) -> None:
     if ' '.join(sys.argv).endswith(Config.get_action_string()):
         Log.error('No settings modifications provided. Aborting')
         return
     config_path = Config.default_config_path()
-    _config_write(config_path)
+    await _config_write(config_path)
 
 
 async def launch(kemono: Kemono) -> None:

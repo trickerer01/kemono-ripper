@@ -248,12 +248,10 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     #  create
     pcfc = parsers[PARSER_TITLE_CONFIG_CREATE]
-    # pcfcg1 = pcfc.add_argument_group(title='options')
-    # pcfcg1.add_argument('name', help=HELP_ARG_CONFIG_NAME, type=str)
+    pcfcg1 = pcfc.add_argument_group(title='options')
+    pcfcg1.add_argument('-i', '--indent', metavar='1..8', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
     #  modify
     pcfm = parsers[PARSER_TITLE_CONFIG_MODIFY]
-    # pcfmg1 = pcfm.add_argument_group(title='options')
-    # pcfmg1.add_argument('name', help=HELP_ARG_CONFIG_NAME, type=str)
 
     # Creators
     pc = parsers[PARSER_TITLE_CREATOR]

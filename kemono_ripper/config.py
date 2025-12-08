@@ -12,12 +12,16 @@ from typing import Protocol, TypedDict
 
 from aiohttp import ClientTimeout
 
-from .defs import CONFIG_NAME_DEFAULT, CONNECT_TIMEOUT_SOCKET_READ, NumRange
+from .defs import CONFIG_NAME_DEFAULT, CONNECT_TIMEOUT_SOCKET_READ, SITE_MEGA, NumRange, SupportedExternalWebsite
 
 if False is True:  # for hinting only
     from .api import APIAddress, APIService, PostPageScanResult  # noqa: I001
 
 __all__ = ('Config', 'ExternalURLHandlerConfig', 'MegaConfig')
+
+
+class DownloaderConfig(TypedDict):
+    proxy: str
 
 
 class ConfigJSON(TypedDict):
@@ -33,6 +37,10 @@ class ConfigJSON(TypedDict):
     retries: int
     extra_headers: list[tuple[str, str]]
     extra_cookies: list[tuple[str, str]]
+    per_website_config: dict[SupportedExternalWebsite, DownloaderConfig]
+
+
+PER_WEBSITE_CONFIG_DEFAULT = dict.fromkeys((_.value for _ in SupportedExternalWebsite.__members__.values()), DownloaderConfig(proxy=''))
 
 
 class BaseConfig:
@@ -68,6 +76,7 @@ class BaseConfig:
         '''indentation for saved json files'''
         self.prune: bool | None = None
         '''prune extra info from dumps'''
+        self.per_website_config: dict[SupportedExternalWebsite, DownloaderConfig] = PER_WEBSITE_CONFIG_DEFAULT.copy()
         # new
         self.filter_filesize: NumRange | None = None
         self.filter_filename: str | None = None
@@ -107,6 +116,7 @@ class BaseConfig:
             retries=self.retries,
             extra_headers=self.extra_headers,
             extra_cookies=self.extra_cookies,
+            per_website_config=self.per_website_config,
         )
 
     def from_json(self, json_: ConfigJSON) -> None:
@@ -157,7 +167,7 @@ class MegaConfig:
         self.links: list[str] | None = overrides.pop('links', config.links)
         self.max_jobs: int | None = overrides.pop('max_jobs', config.max_jobs)
         self.dest_base: pathlib.Path | None = overrides.pop('dest_base', config.dest_base)
-        self.proxy: str | None = ''
+        self.proxy: str | None = overrides.pop('proxy', config.per_website_config.get(SITE_MEGA, {'proxy': config.proxy}).get('proxy'))
         self.download_mode: str | None = overrides.pop('download_mode', config.download_mode)
         self.logging_flags: int = overrides.pop('logging_flags', config.logging_flags)
         self.nocolors: bool | None = overrides.pop('nocolors', config.disable_log_colors)

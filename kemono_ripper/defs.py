@@ -6,7 +6,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 #
 
-from enum import IntEnum
+from enum import Enum, IntEnum
 from typing import NamedTuple
 
 MIN_PYTHON_VERSION = (3, 10)
@@ -28,6 +28,10 @@ SCAN_CANCEL_KEYCOUNT = 2
 SLASH = '/'
 UTF8 = 'utf-8'
 JSON_INDENT_DEFAULT = 4
+
+
+class SupportedExternalWebsite(str, Enum):
+    MegaNz = SITE_MEGA
 
 
 class LoggingFlags(IntEnum):
