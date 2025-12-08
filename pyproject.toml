@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'kemono-ripper'
-version = '0.9.33'
+version = '0.9.34'
 authors = [
     {name = 'trickerer01'},
 ]
@@ -60,6 +60,9 @@ Tracker = 'https://github.com/trickerer01/kemono-ripper/issues'
 
 [project.scripts]
 kemono-ripper = 'kemono_ripper:main'
+
+[tool.setuptools]
+py-modules = ['kemono_ripper']
 
 [tool.ruff]
 line-length = 140
@@ -139,9 +142,6 @@ select = [
     'PLW',    # Pylint Warning
     'RUF',    # Ruff-specific rules
 ]
-
-[tool.setuptools]
-py-modules = ['kemono_ripper']
 
 [tool.ruff.lint.per-file-ignores]
 'kemono_ripper/main.py' = [
