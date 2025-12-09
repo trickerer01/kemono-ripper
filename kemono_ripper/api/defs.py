@@ -6,7 +6,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 #
 
-from enum import Enum, IntEnum
+from enum import Enum
 from typing import NamedTuple
 
 CONNECT_REQUEST_DELAY = 0.3
@@ -35,24 +35,6 @@ DOWNLOAD_MODES: tuple[str, ...] = tuple(_.value for _ in DownloadMode.__members_
 '''('full','touch','skip')'''
 DOWNLOAD_MODE_DEFAULT = DownloadMode.FULL.value
 """'full'"""
-
-
-class DownloadResult(IntEnum):
-    SUCCESS = 0
-    FAIL_NOT_FOUND = 1
-    FAIL_RETRIES = 2
-    FAIL_ALREADY_EXISTS = 3
-    FAIL_SKIPPED = 4
-    FAIL_DELETED = 5
-    FAIL_FILTERED_OUTER = 6
-    FAIL_EMPTY_HTML = 7
-
-    RESULT_MASK_ALL = ((1 << SUCCESS) | (1 << FAIL_NOT_FOUND) | (1 << FAIL_RETRIES) | (1 << FAIL_ALREADY_EXISTS) |
-                       (1 << FAIL_SKIPPED) | (1 << FAIL_DELETED) | (1 << FAIL_FILTERED_OUTER) | (1 << FAIL_EMPTY_HTML))
-    RESULT_MASK_CRITICAL = (RESULT_MASK_ALL & ~((1 << SUCCESS) | (1 << FAIL_SKIPPED) | (1 << FAIL_ALREADY_EXISTS)))
-
-    def __str__(self) -> str:
-        return f'{self.name} (0x{self.value:02X})'
 
 
 class Mem:

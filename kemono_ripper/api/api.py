@@ -17,7 +17,6 @@ from collections.abc import Iterable
 from aiofile import async_open
 from aiohttp import ClientConnectorError, ClientPayloadError, ClientResponse, ClientSession, ClientTimeout, TCPConnector
 from aiohttp_socks import ProxyConnector
-from yarl import URL
 
 from kemono_ripper.util import UAManager
 
@@ -32,7 +31,7 @@ from .actions import (
 )
 from .defs import CONNECT_RETRY_DELAY, MAX_JOBS, POSTS_PER_PAGE, DownloadMode, Mem
 from .exceptions import KemonoErrorCodes, RequestError, ValidationError
-from .filters import Filter
+from .filters import Filter, any_filter_matching
 from .logging import Log, set_logger
 from .options import KemonoOptions
 from .request_queue import RequestQueue
@@ -43,6 +42,8 @@ from .types import (
     Creator,
     FreePost,
     ListedPost,
+    PostDownloadInfo,
+    PostLinkDownloadInfo,
     PostPageScanResult,
     ScannedPost,
 )
@@ -154,11 +155,15 @@ class Kemono:
             Log.error('Unable to connect. Aborting')
         raise ConnectionError
 
-    async def _download(self, action: APIDownloadAction, file_path: pathlib.Path) -> tuple[int, KemonoErrorCodes]:
+    async def _download(self, action: APIDownloadAction) -> tuple[int, KemonoErrorCodes]:
+        if ffilter := any_filter_matching(action.post, action.post_link, self._filters):
+            Log.info(f'File {action.post_link.local_path} was filtered out by {ffilter!s}. Skipped!')
+            return 0, KemonoErrorCodes.ESUCCESS
+
         if self._download_mode == DownloadMode.SKIP:
             return 0, KemonoErrorCodes.ESUCCESS
         elif self._download_mode == DownloadMode.TOUCH:
-            with open(file_path, 'wb'):
+            with open(action.post_link.path, 'wb'):
                 return 0, KemonoErrorCodes.ESUCCESS
 
         if self._session is None:
@@ -169,7 +174,7 @@ class Kemono:
         while try_num <= self._retries:
             r: ClientResponse | None = None
             try:
-                file_size = file_path.stat().st_size if file_path.is_file() else 0
+                file_size = action.post_link.path.stat().st_size if action.post_link.path.is_file() else 0
                 hkwargs: dict[str, dict[str, str]] = {'headers': {'Range': f'bytes={file_size:d}-'} if file_size > 0 else {}}
                 async with await self._wrap_request(action, try_num=try_num, **hkwargs) as r:
                     if r.status == 404:
@@ -179,17 +184,17 @@ class Kemono:
                     r.raise_for_status()
                     content_len: int = r.content_length or 0
                     assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url().human_repr()}! Retrying...'
-                    file_path.parent.mkdir(parents=True, exist_ok=True)
-                    async with async_open(file_path, 'wb') as output_file:
+                    action.post_link.path.parent.mkdir(parents=True, exist_ok=True)
+                    async with async_open(action.post_link.path, 'wb') as output_file:
                         async for chunk in r.content.iter_chunked(128 * Mem.KB):
                             await output_file.write(chunk)
                             bytes_written += len(chunk)
                 return bytes_written, KemonoErrorCodes.ESUCCESS
             except Exception as e:
-                Log.error(f'{file_path.name}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
+                Log.error(f'{action.post_link.local_path}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
                 if (r is None or r.status != 403) and not isinstance(e, (ClientPayloadError, ClientConnectorError)):
                     try_num += 1
-                    local_path = '/'.join(file_path.parts[-3:])
+                    local_path = '/'.join(action.post_link.path.parts[-3:])
                     Log.error(f'{local_path}: error #{try_num:d}...')
                 if r is not None and not r.closed:
                     r.close()
@@ -232,8 +237,8 @@ class Kemono:
             offset += POSTS_PER_PAGE
         return all_posts
 
-    async def download_url(self, url: URL, file_path: pathlib.Path) -> tuple[int, KemonoErrorCodes]:
-        result = await self._download(APIDownloadAction(url), file_path)
+    async def download_url(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> tuple[int, KemonoErrorCodes]:
+        result = await self._download(APIDownloadAction(post, plink))
         return result
 
 #

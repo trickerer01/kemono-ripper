@@ -51,16 +51,17 @@ class BaseConfig:
         'header': 'extra_headers',
         'cookie': 'extra_cookies',
         'post_id': 'post_ids',
+        'ids': 'filter_post_ids',
+        'ext': 'filter_extensions',
     }
 
     def __init__(self) -> None:
-        # new new
         self.subcommand_1: str = ''
         self.subcommand_2: str = ''
         self.subcommand_3: str = ''
         self.api_address: APIAddress | None = None
         self.service: APIService | None = None
-        self.post_ids: list[int] | None = None
+        self.post_ids: list[str] | None = None
         '''post scan id, post rip id'''
         self.creator_id: int | None = None
         '''post scan id, post rip id'''
@@ -77,9 +78,10 @@ class BaseConfig:
         self.prune: bool | None = None
         '''prune extra info from dumps'''
         self.per_website_config: dict[SupportedExternalWebsite, DownloaderConfig] = PER_WEBSITE_CONFIG_DEFAULT.copy()
-        # new
         self.filter_filesize: NumRange | None = None
         self.filter_filename: str | None = None
+        self.filter_post_ids: NumRange | None = None
+        self.filter_extensions: list[str] | None = None
         self.src_file: pathlib.Path | None = None
         self.max_jobs: int | None = None
         # common
@@ -140,6 +142,7 @@ class BaseConfig:
 class ExternalURLHandlerConfig(Protocol):
     filter_filesize: NumRange | None
     filter_filename: str | None
+    filter_extensions: list[str] | None
     dump_links: bool | None
     dump_structure: bool | None
     links_file: pathlib.Path | None
@@ -164,6 +167,7 @@ class MegaConfig:
         self.links_file: pathlib.Path | None = None
         self.filter_filesize: NumRange | None = overrides.pop('filter_filesize', config.filter_filesize)
         self.filter_filename: str | None = overrides.pop('filter_filename', config.filter_filename)
+        self.filter_extensions: list[str] | None = overrides.pop('filter_extensions', config.filter_extensions)
         self.links: list[str] | None = overrides.pop('links', config.links)
         self.max_jobs: int | None = overrides.pop('max_jobs', config.max_jobs)
         self.dest_base: pathlib.Path | None = overrides.pop('dest_base', config.dest_base)

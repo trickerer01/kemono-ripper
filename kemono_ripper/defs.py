@@ -78,10 +78,7 @@ HELP_ARG_COOKIE = 'Append additional cookie. Can be used multiple times'
 HELP_ARG_TIMEOUT = f'Connection timeout (in seconds). Default is \'{CONNECT_TIMEOUT_BASE:d}\''
 HELP_ARG_MAXJOBS = f'Maximum simultaneous connections, 1..{MAX_JOBS_MAX:d}'
 HELP_ARG_RETRIES = f'Connection retries count. Default is \'{CONNECT_RETRIES_BASE:d}\''
-# New
 HELP_ARG_FILE = 'Full path to saved links file'
-HELP_ARG_FILTERS = 'Available filters: file size (MB), file name (pattern)'
-# New New
 HELP_ARG_API_ADDRESS = 'Target API address'
 HELP_ARG_SERVICE = 'Target service'
 HELP_ARG_CREATOR_NAME_PATTERN = 'Any name part. Case insensitive'
@@ -93,6 +90,9 @@ HELP_ARG_CREATOR_ID = 'Creator id as seen in web page address (integer)'
 HELP_ARG_SAME_CREATOR = 'If all post have same creator this flag will speedup scanning process x2, (otherwise you\'ll get wrong results!)'
 HELP_ARG_POST_URL = 'Full url to post page'
 HELP_ARG_POST_FILE = 'Full path to target text file'
+HELP_ARG_FILTER_POST_ID_RANGE = 'Post id range for process'
+HELP_ARG_FILTER_FILEEXT = 'Only download files with given extensions. Can be used multiple times. Example: \'--ext .mp4 --ext .png\''
+HELP_ARG_FILTER_FILENAME = 'File name filter (pattern)'
 
 
 class NumRange(NamedTuple):

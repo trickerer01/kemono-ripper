@@ -6,7 +6,11 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 #
 
+import pathlib
+from enum import IntEnum
 from typing import Literal, NamedTuple, TypeAlias, TypedDict
+
+from yarl import URL
 
 APIEntrance = 'api/v1'
 APIMethod: TypeAlias = Literal['GET', 'POST']
@@ -146,6 +150,89 @@ APIResponse: TypeAlias = list[Creator] | list[ListedPost] | FreePost | ScannedPo
 APIEndpointParams: TypeAlias = tuple[str | int] | tuple
 APIRequestParams: TypeAlias = dict[str, str | int]
 APIRequestData: TypeAlias = dict[str, str | APIRequestParams]
+
+
+class DownloadResult(IntEnum):
+    SUCCESS = 0
+    FAIL_NOT_FOUND = 1
+    FAIL_RETRIES = 2
+    FAIL_ALREADY_EXISTS = 3
+    FAIL_SKIPPED = 4
+    FAIL_FILTERED_OUTER = 5
+    FAIL_UNSUPPORTED = 6
+    FAIL_NO_LINKS = 7
+    UNKNOWN = 255
+
+    RESULT_MASK_ALL = ((1 << SUCCESS) | (1 << FAIL_NOT_FOUND) | (1 << FAIL_RETRIES) | (1 << FAIL_ALREADY_EXISTS) |
+                       (1 << FAIL_SKIPPED) | (1 << FAIL_FILTERED_OUTER) | (1 << FAIL_UNSUPPORTED) | (1 << FAIL_NO_LINKS))
+    RESULT_MASK_CRITICAL = (RESULT_MASK_ALL & ~((1 << SUCCESS) | (1 << FAIL_SKIPPED) | (1 << FAIL_ALREADY_EXISTS)))
+
+    def __str__(self) -> str:
+        return f'{self.name} (0x{self.value:02X})'
+
+    __repr__ = __str__
+
+
+class State(IntEnum):
+    NEW = 0
+    QUEUED = 1
+    ACTIVE = 2
+    SCANNING = 3
+    SCANNED = 4
+    DOWNLOAD_PENDING = 5
+    DOWNLOADING = 6
+    WRITING = 7
+    DONE = 8
+    FAILED = 9
+
+    def __str__(self) -> str:
+        return f'{self.name} (0x{self.value:02X})'
+
+    __repr__ = __str__
+
+
+class DownloadFlags(IntEnum):
+    NONE = 0x0
+    ALREADY_EXISTED_EXACT = 0x1
+    ALREADY_EXISTED_SIMILAR = 0x2
+    FILE_WAS_CREATED = 0x4
+    RETURNED_404 = 0x8
+
+
+class DownloadStatus:
+    def __init__(self) -> None:
+        self.flags: DownloadFlags = DownloadFlags.NONE
+        self.result: DownloadResult = DownloadResult.UNKNOWN
+        self.state: State = State.NEW
+
+    def __str__(self) -> str:
+        return f'state: {self.state!s}, result: {self.result!s}'
+
+    __repr__ = __str__
+
+
+class PostLinkDownloadInfo(NamedTuple):
+    name: str
+    url: URL
+    path: pathlib.Path
+    status: DownloadStatus
+
+    @property
+    def local_path(self, levels: Literal[2, 3, 4] = 4) -> str:
+        return '/'.join(('...', *self.path.parts[-levels:]))
+
+
+class PostDownloadInfo(NamedTuple):
+    post_id: str
+    creator_id: int
+    creator_name: str
+    original_post: ScannedPost
+    links: dict[str, PostLinkDownloadInfo]
+    completed: list[PostLinkDownloadInfo]
+    status: DownloadStatus
+
+    def __hash__(self) -> int:
+        return hash((self.creator_id, self.post_id))
 
 #
 #

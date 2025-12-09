@@ -19,6 +19,7 @@ from .api import APIAddress, Creator, Kemono, PostPageScanResult, ScannedPost, S
 from .config import Config
 from .defs import CREATORS_NAME_DEFAULT, SITE_MEGA, UTF8
 from .downloader import KemonoDownloader
+from .filters import PostIdFilter, any_filter_matching_ls_post
 from .logger import Log
 from .util import HTTP_PREFIX, HTTPS_PREFIX
 
@@ -127,15 +128,26 @@ async def creator_rip(kemono: Kemono) -> None:
 
 
 async def post_list(kemono: Kemono) -> None:
+    post_ids_filter = PostIdFilter(Config.filter_post_ids) if Config.filter_post_ids else None
     results = await kemono.list_posts(Config.creator_id)
     listing: list[str] = []
     for lpost in reversed(results):
-        post_id = lpost['id']
-        url = f'https://{kemono.api_address}/{Config.service}/user/{Config.creator_id}/post/{post_id}'
+        pid = lpost['id']
+        user = lpost['user']
+        title = lpost['title']
+        if post_ids_filter:
+            if spfilter := any_filter_matching_ls_post(lpost, (post_ids_filter,)):
+                Log.debug(f'[{user}:{pid}] {title}: post was filtered out by {spfilter!s}...')
+                continue
+        url = f'https://{kemono.api_address}/{Config.service}/user/{Config.creator_id}/post/{pid}'
         msg = (f'{url} \'{lpost["title"]}\', file: \'{lpost["file"]["name"] if lpost["file"] else "None"}\','
                f' {len(lpost["attachments"]):d} attachments')
         listing.append(msg)
-    for msg in (f'\n{len(listing):d} posts found for creator {results[0]["user"] if results else Config.creator_id!s}', *listing):
+    for msg in (
+        f'\n{len(results) - len(listing):d} / {len(results):d} posts were filtered out by {post_ids_filter!s}' if post_ids_filter else '',
+        f'{len(listing):d} posts found for creator {results[0]["user"] if results else Config.creator_id!s}',
+        *listing,
+    ):
         Log.info(f'{msg}')
 
 

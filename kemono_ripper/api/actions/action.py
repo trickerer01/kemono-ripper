@@ -19,6 +19,8 @@ from kemono_ripper.api.types import (
     APIRequestData,
     APIRequestParams,
     APIResponse,
+    PostDownloadInfo,
+    PostLinkDownloadInfo,
 )
 
 
@@ -69,24 +71,34 @@ class APIDownloadAction(APIAction):
     """
     Download actions can be executed in parallel, up to {MAX_JOBS} at a time
     """
-    _download_url: URL
+    _post: PostDownloadInfo
+    _post_link: PostLinkDownloadInfo
 
-    def __init__(self, url: URL) -> None:
-        self._setup(url)
+    def __init__(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
+        self._setup(post, plink)
         super().__init__()
 
-    def _setup(self, url: URL) -> None:
+    def _setup(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
         self._method = 'GET'
-        self._download_url = url
+        self._post = post
+        self._post_link = plink
 
     def _validate(self) -> None:
-        assert self._download_url.is_absolute()
+        assert self._post_link.url.is_absolute()
 
     def as_api_request_data(self) -> APIRequestData:
         return {'method': self._method, 'url': self.get_url(), 'allow_redirects': True}
 
     def get_url(self) -> URL:
-        return self._download_url
+        return self._post_link.url
+
+    @property
+    def post(self) -> PostDownloadInfo:
+        return self._post
+
+    @property
+    def post_link(self) -> PostLinkDownloadInfo:
+        return self._post_link
 
     def __str__(self) -> str:
         return f'[{self._method}] => {self.get_url().human_repr()}'

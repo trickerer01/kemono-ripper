@@ -1,5 +1,5 @@
 from .api import Kemono
-from .defs import DOWNLOAD_MODE_DEFAULT, DOWNLOAD_MODES, DownloadMode, DownloadResult, Mem, NumRange
+from .defs import DOWNLOAD_MODE_DEFAULT, DOWNLOAD_MODES, DownloadMode, Mem, NumRange
 from .exceptions import KemonoAPIError, KemonoErrorCodes
 from .options import KemonoOptions
 from .request_queue import RequestQueue
@@ -15,13 +15,19 @@ from .types import (
     APIResponse,
     APIService,
     Creator,
+    DownloadFlags,
+    DownloadResult,
+    DownloadStatus,
     FreePost,
     ListedPost,
     ListedPostAttachment,
     ListedPostFile,
+    PostDownloadInfo,
+    PostLinkDownloadInfo,
     PostPageScanResult,
     ScannedPost,
     ScannedPostPost,
+    State,
 )
 
 __all__ = (
@@ -38,9 +44,11 @@ __all__ = (
     'APIResponse',
     'APIService',
     'Creator',
+    'DownloadFlags',
     'DownloadMode',
     'DownloadMode',
     'DownloadResult',
+    'DownloadStatus',
     'FreePost',
     'Kemono',
     'KemonoAPIError',
@@ -52,8 +60,11 @@ __all__ = (
     'ListedPostFile',
     'Mem',
     'NumRange',
+    'PostDownloadInfo',
+    'PostLinkDownloadInfo',
     'PostPageScanResult',
     'RequestQueue',
     'ScannedPost',
     'ScannedPostPost',
+    'State',
 )

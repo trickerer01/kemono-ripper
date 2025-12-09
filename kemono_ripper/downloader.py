@@ -17,15 +17,34 @@ from asyncio.queues import Queue as AsyncQueue
 from asyncio.tasks import as_completed, gather, sleep
 from collections import defaultdict, deque
 from collections.abc import Iterable, Sequence
-from enum import IntEnum
-from typing import Final, Literal, NamedTuple, Protocol
+from typing import Final, Protocol
 
 from bs4 import BeautifulSoup
 from yarl import URL
 
-from .api import APIAddress, Kemono, KemonoErrorCodes, Mem, ScannedPost, ScannedPostPost
+from .api import (
+    APIAddress,
+    DownloadResult,
+    DownloadStatus,
+    Kemono,
+    KemonoErrorCodes,
+    Mem,
+    PostDownloadInfo,
+    PostLinkDownloadInfo,
+    ScannedPost,
+    ScannedPostPost,
+    State,
+)
 from .config import Config, ExternalURLHandlerConfig, MegaConfig
 from .defs import SITE_MEGA
+from .filters import (
+    LSPostFilter,
+    PostIdFilter,
+    PostLinkExtFilter,
+    PostLinkFilter,
+    any_filter_matching_ls_post,
+    any_filter_matching_post_link,
+)
 from .logger import Log
 from .util import sanitize_filename
 
@@ -41,89 +60,6 @@ SUPPORTED_TAGS = (
     ('a', 'href'),
     ('img', 'src'),
 )
-
-
-class DownloadResult(IntEnum):
-    SUCCESS = 0
-    FAIL_NOT_FOUND = 1
-    FAIL_RETRIES = 2
-    FAIL_ALREADY_EXISTS = 3
-    FAIL_SKIPPED = 4
-    FAIL_FILTERED_OUTER = 5
-    FAIL_UNSUPPORTED = 6
-    FAIL_NO_LINKS = 7
-    UNKNOWN = 255
-
-    RESULT_MASK_ALL = ((1 << SUCCESS) | (1 << FAIL_NOT_FOUND) | (1 << FAIL_RETRIES) | (1 << FAIL_ALREADY_EXISTS) |
-                       (1 << FAIL_SKIPPED) | (1 << FAIL_FILTERED_OUTER) | (1 << FAIL_UNSUPPORTED) | (1 << FAIL_NO_LINKS))
-    RESULT_MASK_CRITICAL = (RESULT_MASK_ALL & ~((1 << SUCCESS) | (1 << FAIL_SKIPPED) | (1 << FAIL_ALREADY_EXISTS)))
-
-    def __str__(self) -> str:
-        return f'{self.name} (0x{self.value:02X})'
-
-    __repr__ = __str__
-
-
-class State(IntEnum):
-    NEW = 0
-    QUEUED = 1
-    ACTIVE = 2
-    SCANNING = 3
-    SCANNED = 4
-    DOWNLOAD_PENDING = 5
-    DOWNLOADING = 6
-    WRITING = 7
-    DONE = 8
-    FAILED = 9
-
-    def __str__(self) -> str:
-        return f'{self.name} (0x{self.value:02X})'
-
-    __repr__ = __str__
-
-
-class Flags(IntEnum):
-    NONE = 0x0
-    ALREADY_EXISTED_EXACT = 0x1
-    ALREADY_EXISTED_SIMILAR = 0x2
-    FILE_WAS_CREATED = 0x4
-    RETURNED_404 = 0x8
-
-
-class Status:
-    def __init__(self) -> None:
-        self.flags: Flags = Flags.NONE
-        self.result: DownloadResult = DownloadResult.UNKNOWN
-        self.state: State = State.NEW
-
-    def __str__(self) -> str:
-        return f'state: {self.state!s}, result: {self.result!s}'
-
-    __repr__ = __str__
-
-
-class PostLinkDownloadInfo(NamedTuple):
-    name: str
-    url: URL
-    path: pathlib.Path
-    status: Status
-
-    @property
-    def local_path(self) -> str:
-        return KemonoDownloader.local_path(self.path)
-
-
-class PostDownloadInfo(NamedTuple):
-    post_id: str
-    creator_id: int
-    creator_name: str
-    original_post: ScannedPost
-    links: dict[str, PostLinkDownloadInfo]
-    completed: list[PostLinkDownloadInfo]
-    status: Status
-
-    def __hash__(self) -> int:
-        return hash(self.post_id)
 
 
 # external downloaders
@@ -196,6 +132,13 @@ class KemonoDownloader:
     def __init__(self, kemono: Kemono, posts: Sequence[ScannedPost]) -> None:
         self._kemono: Final[Kemono] = kemono
         self._post_info: Final[dict[str, PostDownloadInfo]] = {}
+
+        self._post_filters: list[LSPostFilter] = [
+            *((PostIdFilter(Config.filter_post_ids),) if Config.filter_post_ids else ()),
+        ]
+        self._post_link_filters: list[PostLinkFilter] = [
+            *((PostLinkExtFilter(Config.filter_extensions),) if Config.filter_extensions else ()),
+        ]
 
         self._queue_produce: deque[PostDownloadInfo] = deque()
         self._queue_consume: AsyncQueue[PostDownloadInfo] = AsyncQueue(Config.max_jobs)
@@ -301,7 +244,7 @@ class KemonoDownloader:
             Log.info(f'{plink_id} Processing {url_str} => {plink.local_path}')
             plink.status.state = State.DOWNLOADING
             await self.add_to_writes(post, plink, True)
-            bytes_written, ec = await self._kemono.download_url(plink.url, plink.path)
+            bytes_written, ec = await self._kemono.download_url(post, plink)
             await self.remove_from_writes(post, plink, True)
             if plink.path.is_file():
                 assert plink.path.stat().st_size == bytes_written
@@ -409,6 +352,10 @@ class KemonoDownloader:
             user = post['user']
             title = post['title']
 
+            if spfilter := any_filter_matching_ls_post(spost, self._post_filters):
+                Log.warn(f'[{user}:{pid}] {title}: post was filtered out by {spfilter!s}. Skipped!')
+                continue
+
             links_dict: dict[URL, str] = {}
 
             if previews := spost['previews']:
@@ -458,19 +405,22 @@ class KemonoDownloader:
                     link_full = next_api_address().with_path(f'data{link_base.path}')
                 else:
                     link_full = link_base
-                lpath = Config.dest_base / user / pid / sanitize_filename(next_file_name(name))
-                links[name] = PostLinkDownloadInfo(name, link_full, lpath, Status())
 
-            self._post_info[pid] = PostDownloadInfo(pid, int(user), user, spost, links, [], Status())
+                lpath = Config.dest_base / user / pid / sanitize_filename(next_file_name(name))
+                plink = PostLinkDownloadInfo(name, link_full, lpath, DownloadStatus())
+
+                if plfilter := any_filter_matching_post_link(plink, self._post_link_filters):
+                    Log.warn(f'[{user}:{pid}] {title}: file \'{name}\' was filtered out by {plfilter!s}. Skipped!')
+                    continue
+
+                links[name] = plink
+
+            self._post_info[pid] = PostDownloadInfo(pid, int(user), user, spost, links, [], DownloadStatus())
 
             links_str = '\n'.join(f' {pldi.url.human_repr()} => {pldi.local_path}' for title, pldi in links.items())
             post_strings.append(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links:\n{links_str}')
 
         Log.info('\n'.join(post_strings))
-
-    @staticmethod
-    def local_path(path: pathlib.Path, levels: Literal[2, 3, 4] = 4) -> str:
-        return '/'.join(('...', *path.parts[-levels:]))
 
     @staticmethod
     def extract_link_name(url: URL) -> str:

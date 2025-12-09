@@ -21,7 +21,9 @@ from .defs import (
     HELP_ARG_CREATOR_ID,
     HELP_ARG_CREATOR_NAME_PATTERN,
     HELP_ARG_DMMODE,
-    HELP_ARG_FILTERS,
+    HELP_ARG_FILTER_FILEEXT,
+    HELP_ARG_FILTER_FILENAME,
+    HELP_ARG_FILTER_POST_ID_RANGE,
     HELP_ARG_HEADER,
     HELP_ARG_INDENT,
     HELP_ARG_LOGGING,
@@ -48,6 +50,7 @@ from .validators import (
     log_level,
     positive_int,
     positive_nonzero_int,
+    valid_ext,
     valid_file_path,
     valid_folder_path,
     valid_indent,
@@ -217,9 +220,18 @@ def add_common_args(par: ArgumentParser) -> None:
     do.add_argument('-o', '--path', default=valid_folder_path(os.path.curdir), help=HELP_ARG_PATH, type=valid_folder_path)
     do.add_argument('-d', '--download-mode', default=DM_DEFAULT, help=HELP_ARG_DMMODE, choices=DOWNLOAD_MODES)
     do.add_argument('-j', '--max-jobs', metavar='#number', default=MAX_JOBS_DEFAULT, help=HELP_ARG_MAXJOBS, type=valid_maxjobs)
+
+
+def add_post_filtering_args(par: ArgumentParser, add_id_filters: bool, add_file_filters: bool) -> None:
+    if not any((add_id_filters, add_file_filters)):
+        return
     dofi = par.add_argument_group(title='filtering options')
-    dofi.add_argument('-fs', '--filter-filesize', metavar='#min-max', default=None, help='', type=valid_range)
-    dofi.add_argument('-fn', '--filter-filename', metavar='#pattern', default=None, help=HELP_ARG_FILTERS, type=valid_pattern)
+    if add_id_filters:
+        dofi.add_argument('--ids', metavar='#min-max', default=None, help=HELP_ARG_FILTER_POST_ID_RANGE, type=valid_range)
+    if add_file_filters:
+        # dofi.add_argument('-fs', '--filter-filesize', metavar='#min-max', default=None, help='', type=valid_range)
+        dofi.add_argument('-fn', '--filter-filename', metavar='#pattern', default=None, help=HELP_ARG_FILTER_FILENAME, type=valid_pattern)
+        dofi.add_argument('--ext', metavar='#.EXT', action=ACTION_APPEND, help=HELP_ARG_FILTER_FILEEXT, type=valid_ext)
 
 
 def add_logging_args(par: ArgumentParser) -> None:
@@ -381,6 +393,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     pprfg1.add_argument('file', help=HELP_ARG_POST_FILE, type=valid_file_path)
 
     [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppsi, ppsu, ppsf, ppri, ppru, pprf, pcfc, pcfm)]
+    [add_post_filtering_args(_, _ in (ppl, pcr), _ not in (ppl,)) for _ in (ppl, pcr, ppri, ppru, pprf)]
     [add_logging_args(_) for _ in parsers.values()]
     [add_help(_, _ == parser_root) for _ in parsers.values()]
     return execute_parser(parser_root, args)
