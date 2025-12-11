@@ -16,7 +16,7 @@ APIEntrance = 'api/v1'
 APIMethod: TypeAlias = Literal['GET', 'POST']
 APIAddress: TypeAlias = Literal['kemono.cr', 'kemono.su', 'kemono.party', 'coomer.cr', 'coomer.su', 'coomer.party']
 APIService: TypeAlias = Literal['patreon', 'boosty', 'subscribestar', 'fantia', 'gumroad', 'fanbox', 'discord', 'dlsite']
-APIEndpointFormat: TypeAlias = Literal['{}/user/{}/posts', '{}/user/{}/post/{}', '{}/post/{}']
+APIEndpointFormat: TypeAlias = Literal['{}/user/{}/posts', '{}/user/{}/post/{}', '{}/post/{}', 'posts/tags', 'posts']
 APIEndpoint: TypeAlias = Literal['creators', APIEndpointFormat]
 
 
@@ -146,8 +146,37 @@ class ScannedPost(TypedDict):
     props: ScannedPostProps
 
 
-APIResponse: TypeAlias = list[Creator] | list[ListedPost] | FreePost | ScannedPost
-APIEndpointParams: TypeAlias = tuple[str | int] | tuple
+class SearchedPost(TypedDict):
+    id: str
+    user: str
+    service: APIService
+    title: str
+    content: str
+    embed: dict  # TODO: validate
+    shared_file: bool
+    added: str
+    published: str
+    edited: str
+    file: ScannedPostPostFile
+    attachments: list[ScannedPostPostAttachment]
+    poll: ScannedPostPostPoll | None
+    # captions: unk
+    tags: list[str] | None
+
+
+class SearchedPosts(TypedDict):
+    count: int
+    true_count: int
+    posts: list[SearchedPost]
+
+
+class PostListedTag(TypedDict):
+    tag: str
+    post_count: int
+
+
+APIResponse: TypeAlias = list[Creator] | list[ListedPost] | FreePost | ScannedPost | list[PostListedTag] | SearchedPosts
+APIEndpointParams: TypeAlias = tuple[str | int, ...] | tuple[str, str, list[str]] | tuple
 APIRequestParams: TypeAlias = dict[str, str | int]
 APIRequestData: TypeAlias = dict[str, str | APIRequestParams]
 

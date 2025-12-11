@@ -9,7 +9,25 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 import json
 
 from kemono_ripper.api.actions import APIFetchAction
-from kemono_ripper.api.types import APIAddress, APIService, FreePost, ListedPost, ScannedPost
+from kemono_ripper.api.types import APIAddress, APIService, FreePost, ListedPost, ScannedPost, ScannedPostPost
+
+
+class SearchPostsAction(APIFetchAction):
+    def __init__(self, api_addr: APIAddress, query: str, offset: int, tags: list[str]) -> None:
+        self._setup(api_addr, query, offset, tags)
+        super().__init__()
+
+    def _setup(self, api_addr: APIAddress, query: str, offset: int, tags: list[str]) -> None:
+        self._api_address = api_addr
+        self._method = 'GET'
+        self._endpoint = 'posts'
+        self._endpoint_params = ()
+        self._request_data = {'q': query, 'o': offset, 'tag': tags}
+
+    async def process_response_content(self, content: bytes) -> list[ScannedPostPost]:
+        json_ = json.loads(content)
+        self.assert_valid_json_result(json_)
+        return json_
 
 
 class GetCreatorPostsAction(APIFetchAction):
@@ -58,6 +76,24 @@ class GetCreatorPostAction(APIFetchAction):
         self._method = 'GET'
         self._endpoint = '{}/user/{}/post/{}'
         self._endpoint_params = (service, creator_id, post_id)
+        self._request_data = {}
+
+    async def process_response_content(self, content: bytes) -> ScannedPost:
+        json_ = json.loads(content)
+        self.assert_valid_json_result(json_)
+        return json_
+
+
+class GetPostTagsAction(APIFetchAction):
+    def __init__(self, api_addr: APIAddress) -> None:
+        self._setup(api_addr)
+        super().__init__()
+
+    def _setup(self, api_addr: APIAddress) -> None:
+        self._api_address = api_addr
+        self._method = 'GET'
+        self._endpoint = 'posts/tags'
+        self._endpoint_params = ()
         self._request_data = {}
 
     async def process_response_content(self, content: bytes) -> ScannedPost:

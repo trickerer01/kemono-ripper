@@ -27,6 +27,7 @@ from .types import (
     PostPageScanResult,
     ScannedPost,
     ScannedPostPost,
+    SearchedPost,
     State,
 )
 
@@ -66,5 +67,6 @@ __all__ = (
     'RequestQueue',
     'ScannedPost',
     'ScannedPostPost',
+    'SearchedPost',
     'State',
 )

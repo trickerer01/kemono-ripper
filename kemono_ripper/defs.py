@@ -13,6 +13,7 @@ MIN_PYTHON_VERSION = (3, 10)
 MIN_PYTHON_VERSION_STR = f'{MIN_PYTHON_VERSION[0]:d}.{MIN_PYTHON_VERSION[1]:d}'
 
 CREATORS_NAME_DEFAULT = 'creators.json'
+POST_TAGS_NAME_DEFAULT = 'post_tags.json'
 CONFIG_NAME_DEFAULT = 'setting.json'
 
 SITE_MEGA = 'mega.nz'
@@ -90,7 +91,9 @@ HELP_ARG_CREATOR_ID = 'Creator id as seen in web page address (integer)'
 HELP_ARG_SAME_CREATOR = 'If all post have same creator this flag will speedup scanning process x2, (otherwise you\'ll get wrong results!)'
 HELP_ARG_POST_URL = 'Full url to post page'
 HELP_ARG_POST_FILE = 'Full path to target text file'
-HELP_ARG_FILTER_POST_ID_RANGE = 'Post id range for process'
+HELP_ARG_POST_TAG = 'Post tags. List of popular tags can be fetched using \'post tags dump\' command'
+HELP_ARG_SEARCH_STRING = 'Search query string'
+HELP_ARG_FILTER_POST_ID_RANGE = 'Post id range'
 HELP_ARG_FILTER_FILEEXT = 'Only download files with given extensions. Can be used multiple times. Example: \'--ext .mp4 --ext .png\''
 HELP_ARG_FILTER_FILENAME = 'File name filter (pattern)'
 

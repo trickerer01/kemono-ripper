@@ -9,7 +9,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 from collections.abc import Iterable
 from typing import Final, Protocol
 
-from .api import ListedPost, Mem, NumRange, PostDownloadInfo, PostLinkDownloadInfo, ScannedPost
+from .api import ListedPost, Mem, NumRange, PostDownloadInfo, PostLinkDownloadInfo, ScannedPost, SearchedPost
 from .util import build_regex_from_pattern
 
 
@@ -49,11 +49,11 @@ class FileNameFilter:
 
 # Downloader
 class LSPostFilter(Protocol):
-    def filters_out(self, post: ScannedPost | ListedPost) -> bool: ...
+    def filters_out(self, post: ScannedPost | SearchedPost | ListedPost) -> bool: ...
     def __str__(self) -> str: ...
 
 
-def any_filter_matching_ls_post(post: ScannedPost | ListedPost, filters: Iterable[LSPostFilter]) -> LSPostFilter | None:
+def any_filter_matching_ls_post(post: ScannedPost | SearchedPost | ListedPost, filters: Iterable[LSPostFilter]) -> LSPostFilter | None:
     for ffilter in filters:
         if ffilter.filters_out(post):
             return ffilter
@@ -67,7 +67,7 @@ class PostIdFilter:
     def __init__(self, prange: NumRange) -> None:
         self._range = prange
 
-    def filters_out(self, post: ScannedPost | ListedPost) -> bool:
+    def filters_out(self, post: ScannedPost | SearchedPost | ListedPost) -> bool:
         post_id = post['post']['id'] if 'post' in post else post['id']
         return post_id.isnumeric() and not self._range.min <= int(post_id) <= self._range.max
 

@@ -7,7 +7,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 
 import os
-from argparse import ONE_OR_MORE, OPTIONAL, ArgumentParser, Namespace
+from argparse import ONE_OR_MORE, OPTIONAL, ZERO_OR_MORE, ArgumentParser, Namespace
 from collections.abc import Sequence
 
 from .api import DOWNLOAD_MODE_DEFAULT, DOWNLOAD_MODES, APIAddress, APIService
@@ -32,11 +32,13 @@ from .defs import (
     HELP_ARG_PATH,
     HELP_ARG_POST_FILE,
     HELP_ARG_POST_ID,
+    HELP_ARG_POST_TAG,
     HELP_ARG_POST_URL,
     HELP_ARG_PROXY,
     HELP_ARG_PRUNE,
     HELP_ARG_RETRIES,
     HELP_ARG_SAME_CREATOR,
+    HELP_ARG_SEARCH_STRING,
     HELP_ARG_SERVICE,
     HELP_ARG_SKIP_CACHE,
     HELP_ARG_TIMEOUT,
@@ -84,6 +86,7 @@ PARSER_TITLE_CREATOR_DUMP = 'cdump'
 PARSER_TITLE_CREATOR_RIP = 'crip'
 PARSER_TITLE_POST = 'post'
 PARSER_TITLE_POST_LIST = 'plist'
+PARSER_TITLE_POST_SEARCH = 'psearch'
 PARSER_TITLE_POST_SCAN = 'pscan'
 PARSER_TITLE_POST_SCAN_ID = 'pscan_id'
 PARSER_TITLE_POST_SCAN_URL = 'pscan_url'
@@ -92,6 +95,8 @@ PARSER_TITLE_POST_RIP = 'prip'
 PARSER_TITLE_POST_RIP_ID = 'prip_id'
 PARSER_TITLE_POST_RIP_URL = 'prip_url'
 PARSER_TITLE_POST_RIP_FILE = 'prip_file'
+PARSER_TITLE_POST_TAGS = 'ptags'
+PARSER_TITLE_POST_TAGS_DUMP = 'ptag_dump'
 PARSER_TITLE_CONFIG = 'config'
 PARSER_TITLE_CONFIG_CREATE = 'cfcreate'
 PARSER_TITLE_CONFIG_MODIFY = 'cfmodify'
@@ -101,6 +106,7 @@ PARSER_TITLE_NAMES_REMAP: dict[str, str] = {
     PARSER_TITLE_CREATOR_DUMP: 'dump',
     PARSER_TITLE_CREATOR_RIP: 'rip',
     PARSER_TITLE_POST_LIST: 'list',
+    PARSER_TITLE_POST_SEARCH: 'search',
     PARSER_TITLE_POST_SCAN: 'scan',
     PARSER_TITLE_POST_SCAN_ID: 'id',
     PARSER_TITLE_POST_SCAN_URL: 'url',
@@ -109,6 +115,8 @@ PARSER_TITLE_NAMES_REMAP: dict[str, str] = {
     PARSER_TITLE_POST_RIP_ID: 'id',
     PARSER_TITLE_POST_RIP_URL: 'url',
     PARSER_TITLE_POST_RIP_FILE: 'file',
+    PARSER_TITLE_POST_TAGS: 'tags',
+    PARSER_TITLE_POST_TAGS_DUMP: 'dump',
     PARSER_TITLE_CONFIG_CREATE: 'create',
     PARSER_TITLE_CONFIG_MODIFY: 'modify',
 }
@@ -159,40 +167,45 @@ def create_parsers() -> dict[str, ArgumentParser]:
         parsers[name] = parser
         return parser
 
-    def create_subparser(parser: ArgumentParser, title: str, dest: str):
-        return parser.add_subparsers(required=True, title=title, dest=dest, prog=MODULE)
+    def create_subparser(parser: ArgumentParser, dest: str):
+        return parser.add_subparsers(required=True, title='subcommands', dest=dest, prog=MODULE)
 
     parsers: dict[str, ArgumentParser] = {}
 
     parser_main = create_parser(None, PARSER_TITLE_NONE, '')
-    subs_main = create_subparser(parser_main, 'subcommands', 'subcommand_1')
+    subs_main = create_subparser(parser_main, 'subcommand_1')
     # subs_main.add_parser("", )
 
     par_creators = create_parser(subs_main, PARSER_TITLE_CREATOR, '')
-    subs_creators = create_subparser(par_creators, 'creator', 'subcommand_2')
+    subs_creators = create_subparser(par_creators, 'subcommand_2')
     _ = create_parser(subs_creators, PARSER_TITLE_CREATOR_LIST, 'List creators')
     _ = create_parser(subs_creators, PARSER_TITLE_CREATOR_DUMP, 'Dump ALL creators list to a JSON file')
 
     _ = create_parser(subs_creators, PARSER_TITLE_CREATOR_RIP, 'Scan all creator posts and download everything')
 
     par_posts = create_parser(subs_main, PARSER_TITLE_POST, '')
-    subs_posts = create_subparser(par_posts, 'post', 'subcommand_2')
+    subs_posts = create_subparser(par_posts, 'subcommand_2')
     _ = create_parser(subs_posts, PARSER_TITLE_POST_LIST, 'List creator posts')
+    _ = create_parser(subs_posts, PARSER_TITLE_POST_SEARCH, 'Search for posts')
 
     par_post_scan = create_parser(subs_posts, PARSER_TITLE_POST_SCAN, 'Scan post contents')
-    subs_post_scan = create_subparser(par_post_scan, 'inputs', 'subcommand_3')
+    subs_post_scan = create_subparser(par_post_scan, 'subcommand_3')
     _ = create_parser(subs_post_scan, PARSER_TITLE_POST_SCAN_ID, 'Scan posts by post id')
     _ = create_parser(subs_post_scan, PARSER_TITLE_POST_SCAN_URL, 'Scan posts by URL')
     _ = create_parser(subs_post_scan, PARSER_TITLE_POST_SCAN_FILE, 'Read posts to scan from a text file')
 
     par_post_rip = create_parser(subs_posts, PARSER_TITLE_POST_RIP, 'Scan post content and download everything')
-    subs_post_rip = create_subparser(par_post_rip, 'inputs', 'subcommand_3')
+    subs_post_rip = create_subparser(par_post_rip, 'subcommand_3')
     _ = create_parser(subs_post_rip, PARSER_TITLE_POST_RIP_ID, 'Rip posts by post id')
     _ = create_parser(subs_post_rip, PARSER_TITLE_POST_RIP_URL, 'Rip posts by URL')
     _ = create_parser(subs_post_rip, PARSER_TITLE_POST_RIP_FILE, 'Read posts to rip from a text file')
 
+    par_post_tag = create_parser(subs_posts, PARSER_TITLE_POST_TAGS, '')
+    subs_post_tag = create_subparser(par_post_tag, 'subcommand_3')
+    _ = create_parser(subs_post_tag, PARSER_TITLE_POST_TAGS_DUMP, 'Dump most popular post tags list to a JSON file')
+
     par_config = create_parser(subs_main, PARSER_TITLE_CONFIG, '')
-    subs_config = create_subparser(par_config, 'config', 'subcommand_2')
+    subs_config = create_subparser(par_config, 'subcommand_2')
     _ = create_parser(subs_config, PARSER_TITLE_CONFIG_CREATE, 'Create a default config file if doesn\'t exist')
     _ = create_parser(subs_config, PARSER_TITLE_CONFIG_MODIFY, 'Change settings in config file')
 
@@ -303,7 +316,10 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     pp = parsers[PARSER_TITLE_POST]
     pp.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_LIST]} ...'
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SEARCH]} ...'
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SCAN]} ...'
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_RIP]} ...'
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_TAGS]} ...'
     )
     #  list
     ppl = parsers[PARSER_TITLE_POST_LIST]
@@ -313,6 +329,15 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     pplg1 = ppl.add_argument_group(title='options')
     pplg1.add_argument('creator_id', help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
+    #  search
+    ppse = parsers[PARSER_TITLE_POST_SEARCH]
+    ppse.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SEARCH]}'
+        f' #string #[tag [tag ...]]'
+    )
+    ppseg1 = ppse.add_argument_group(title='options')
+    ppseg1.add_argument('search_string', metavar='string', help=HELP_ARG_SEARCH_STRING)
+    ppseg1.add_argument('search_tags', metavar='tag [tag ...]', nargs=ZERO_OR_MORE, help=HELP_ARG_POST_TAG)
     #  scan
     pps = parsers[PARSER_TITLE_POST_SCAN]
     pps.usage = (
@@ -391,9 +416,24 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     pprfg1 = pprf.add_argument_group(title='options')
     pprfg1.add_argument('file', help=HELP_ARG_POST_FILE, type=valid_file_path)
+    #  tag
+    ppt = parsers[PARSER_TITLE_POST_TAGS]
+    ppt.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_TAGS]} ...'
+    )
+    #  dump
+    pptd = parsers[PARSER_TITLE_POST_TAGS_DUMP]
+    pptd.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_TAGS]}'
+        f' {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_TAGS_DUMP]}'
+        f' #[options...] '
+    )
+    pptdg1 = pptd.add_argument_group(title='options')
+    pptdg1.add_argument('-i', '--indent', metavar='1..8', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
+    pptdg1.add_argument('--prune', action=ACTION_STORE_TRUE, help=HELP_ARG_PRUNE)
 
-    [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppsi, ppsu, ppsf, ppri, ppru, pprf, pcfc, pcfm)]
-    [add_post_filtering_args(_, _ in (ppl, pcr), _ not in (ppl,)) for _ in (ppl, pcr, ppri, ppru, pprf)]
+    [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
+    [add_post_filtering_args(_, _ in (ppse, ppl, pcr), _ not in (ppse, ppl)) for _ in (ppl, pcr, ppse, ppri, ppru, pprf)]
     [add_logging_args(_) for _ in parsers.values()]
     [add_help(_, _ == parser_root) for _ in parsers.values()]
     return execute_parser(parser_root, args)

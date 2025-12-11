@@ -61,6 +61,8 @@ class BaseConfig:
         self.subcommand_3: str = ''
         self.api_address: APIAddress | None = None
         self.service: APIService | None = None
+        self.search_string: str | None = None
+        self.search_tags: list[str] | None = None
         self.post_ids: list[str] | None = None
         '''post scan id, post rip id'''
         self.creator_id: int | None = None

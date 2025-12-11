@@ -19,9 +19,12 @@ from .types import (
     ListedPostFile,
     PostDownloadInfo,
     PostLinkDownloadInfo,
+    PostListedTag,
     PostPageScanResult,
     ScannedPost,
     ScannedPostPost,
+    SearchedPost,
+    SearchedPosts,
     State,
 )
 
@@ -46,8 +49,11 @@ __all__ = (
     'ListedPostFile',
     'PostDownloadInfo',
     'PostLinkDownloadInfo',
+    'PostListedTag',
     'PostPageScanResult',
     'ScannedPost',
     'ScannedPostPost',
+    'SearchedPost',
+    'SearchedPosts',
     'State',
 )

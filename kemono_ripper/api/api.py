@@ -28,6 +28,8 @@ from .actions import (
     GetCreatorPostsAction,
     GetCreatorsAction,
     GetFreePostAction,
+    GetPostTagsAction,
+    SearchPostsAction,
 )
 from .defs import CONNECT_RETRY_DELAY, MAX_JOBS, POSTS_PER_PAGE, DownloadMode, Mem
 from .exceptions import KemonoErrorCodes, RequestError, ValidationError
@@ -44,8 +46,11 @@ from .types import (
     ListedPost,
     PostDownloadInfo,
     PostLinkDownloadInfo,
+    PostListedTag,
     PostPageScanResult,
     ScannedPost,
+    SearchedPost,
+    SearchedPosts,
 )
 
 __all__ = ('Kemono',)
@@ -236,6 +241,21 @@ class Kemono:
             all_posts.extend(posts)
             offset += POSTS_PER_PAGE
         return all_posts
+
+    async def search_posts(self, query: str, tags: list[str]) -> list[SearchedPost]:
+        all_posts: list[SearchedPost] = []
+        offset = 0
+        while len(all_posts) % POSTS_PER_PAGE == 0:
+            Log.info(f'Page {offset // POSTS_PER_PAGE + 1:d}...')
+            posts: SearchedPosts = await self._query_api(SearchPostsAction(self._api_address, query, offset, tags))
+            posts_list = posts['posts']
+            all_posts.extend(posts_list)
+            offset += POSTS_PER_PAGE
+        return all_posts
+
+    async def list_tags(self) -> list[PostListedTag]:
+        post_tags: list[PostListedTag] = await self._query_api(GetPostTagsAction(self._api_address))
+        return post_tags
 
     async def download_url(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> tuple[int, KemonoErrorCodes]:
         result = await self._download(APIDownloadAction(post, plink))

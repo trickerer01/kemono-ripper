@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 
 from .api import APIAddress, Creator, Kemono, PostPageScanResult, ScannedPost, ScannedPostPost
 from .config import Config
-from .defs import CREATORS_NAME_DEFAULT, SITE_MEGA, UTF8
+from .defs import CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, SITE_MEGA, UTF8
 from .downloader import KemonoDownloader
 from .filters import PostIdFilter, any_filter_matching_ls_post
 from .logger import Log
@@ -99,8 +99,8 @@ async def creator_dump(kemono: Kemono) -> None:
     results_sorted = sorted(results, key=lambda c: c['name'].lower())
     with open(Config.dest_base / CREATORS_NAME_DEFAULT, 'wt', encoding=UTF8, newline='\n') as outfile_creators:
         json.dump(
-            [(creator['name'], creator['id'], creator['service']) for creator in results_sorted]
-            if Config.prune else results_sorted, outfile_creators, ensure_ascii=False, indent=Config.indent,
+            [(creator['name'], creator['id'], creator['service']) for creator in results_sorted] if Config.prune else results_sorted,
+            outfile_creators, ensure_ascii=False, indent=Config.indent,
         )
         outfile_creators.write('\n')
 
@@ -139,7 +139,31 @@ async def post_list(kemono: Kemono) -> None:
             if spfilter := any_filter_matching_ls_post(lpost, (post_ids_filter,)):
                 Log.debug(f'[{user}:{pid}] {title}: post was filtered out by {spfilter!s}...')
                 continue
-        url = f'https://{kemono.api_address}/{Config.service}/user/{Config.creator_id}/post/{pid}'
+        url = f'https://{kemono.api_address}/{Config.service}/user/{user}/post/{pid}'
+        msg = (f'{url} \'{lpost["title"]}\', file: \'{lpost["file"]["name"] if lpost["file"] else "None"}\','
+               f' {len(lpost["attachments"]):d} attachments')
+        listing.append(msg)
+    for msg in (
+        f'\n{len(results) - len(listing):d} / {len(results):d} posts were filtered out by {post_ids_filter!s}' if post_ids_filter else '',
+        f'{len(listing):d} posts found for creator {results[0]["user"] if results else Config.creator_id!s}',
+        *listing,
+    ):
+        Log.info(f'{msg}')
+
+
+async def post_search(kemono: Kemono) -> None:
+    post_ids_filter = PostIdFilter(Config.filter_post_ids) if Config.filter_post_ids else None
+    results = await kemono.search_posts(Config.search_string, Config.search_tags)
+    listing: list[str] = []
+    for lpost in reversed(results):
+        pid = lpost['id']
+        user = lpost['user']
+        title = lpost['title']
+        if post_ids_filter:
+            if spfilter := any_filter_matching_ls_post(lpost, (post_ids_filter,)):
+                Log.debug(f'[{user}:{pid}] {title}: post was filtered out by {spfilter!s}...')
+                continue
+        url = f'https://{kemono.api_address}/{Config.service}/user/{user}/post/{pid}'
         msg = (f'{url} \'{lpost["title"]}\', file: \'{lpost["file"]["name"] if lpost["file"] else "None"}\','
                f' {len(lpost["attachments"]):d} attachments')
         listing.append(msg)
@@ -186,6 +210,17 @@ async def post_rip_file(kemono: Kemono) -> None:
     return await post_scan_file(kemono, download=True)
 
 
+async def post_tag_dump(kemono: Kemono) -> None:
+    results = await kemono.list_tags()
+    results_sorted = sorted(results, key=lambda t: t['tag'].lower())
+    with open(Config.dest_base / POST_TAGS_NAME_DEFAULT, 'wt', encoding=UTF8, newline='\n') as outfile_post_tags:
+        json.dump(
+            [(tag['tag'], tag['post_count']) for tag in results_sorted] if Config.prune else results_sorted,
+            outfile_post_tags, ensure_ascii=False, indent=Config.indent,
+        )
+        outfile_post_tags.write('\n')
+
+
 async def _config_write(config_path: pathlib.Path) -> None:  # noqa RUF029
     Log.info(f'Writing configuration to {config_path.as_posix()}...')
     with open(config_path, 'wt', encoding=UTF8, newline='\n') as outfile_settings:
@@ -220,12 +255,14 @@ async def launch(kemono: Kemono) -> None:
         'creator list': creator_list,
         'creator rip': creator_rip,
         'post list': post_list,
+        'post search': post_search,
         'post scan id': post_scan_id,
         'post scan url': post_scan_url,
         'post scan file': post_scan_file,
         'post rip id': post_rip_id,
         'post rip url': post_rip_url,
         'post rip file': post_rip_file,
+        'post tag dump': post_tag_dump,
         'config create': config_create,
         'config modify': config_modify,
     }
