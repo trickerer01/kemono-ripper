@@ -6,10 +6,12 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 #
 
+import datetime
 from collections.abc import Iterable
-from typing import Final, Protocol
+from typing import Final, Protocol, TypeAlias
 
-from .api import ListedPost, Mem, NumRange, PostDownloadInfo, PostLinkDownloadInfo, ScannedPost, SearchedPost
+from .api import ListedPost, Mem, PostDownloadInfo, PostLinkDownloadInfo, ScannedPost, SearchedPost
+from .defs import DateRange, NumRange
 from .util import build_regex_from_pattern
 
 
@@ -48,14 +50,17 @@ class FileNameFilter:
 
 
 # Downloader
+LSPost: TypeAlias = ScannedPost | SearchedPost | ListedPost
+
+
 class LSPostFilter(Protocol):
-    def filters_out(self, post: ScannedPost | SearchedPost | ListedPost) -> bool: ...
+    def filters_out(self, post: LSPost) -> bool: ...
     def __str__(self) -> str: ...
 
 
-def any_filter_matching_ls_post(post: ScannedPost | SearchedPost | ListedPost, filters: Iterable[LSPostFilter]) -> LSPostFilter | None:
+def any_filter_matching_ls_post(post: LSPost, filters: Iterable[LSPostFilter | None]) -> LSPostFilter | None:
     for ffilter in filters:
-        if ffilter.filters_out(post):
+        if ffilter and ffilter.filters_out(post):
             return ffilter
     return None
 
@@ -67,9 +72,25 @@ class PostIdFilter:
     def __init__(self, prange: NumRange) -> None:
         self._range = prange
 
-    def filters_out(self, post: ScannedPost | SearchedPost | ListedPost) -> bool:
+    def filters_out(self, post: LSPost) -> bool:
         post_id = post['post']['id'] if 'post' in post else post['id']
         return post_id.isnumeric() and not self._range.min <= int(post_id) <= self._range.max
+
+    def __str__(self) -> str:
+        return f'{self.__class__.__name__}<{self._range!s}>'
+
+
+class PostDateFilter:
+    """
+    Filters posts by post publish date
+    """
+    def __init__(self, drange: DateRange) -> None:
+        self._range = drange
+
+    def filters_out(self, post: LSPost) -> bool:
+        published: str = post['post']['published'] if 'post' in post else post['published']
+        published_date = datetime.datetime.fromisoformat(published).date()
+        return not self._range.mindate <= published_date <= self._range.maxdate
 
     def __str__(self) -> str:
         return f'{self.__class__.__name__}<{self._range!s}>'
@@ -80,9 +101,9 @@ class PostLinkFilter(Protocol):
     def __str__(self) -> str: ...
 
 
-def any_filter_matching_post_link(plink: PostLinkDownloadInfo, filters: Iterable[PostLinkFilter]) -> PostLinkFilter | None:
+def any_filter_matching_post_link(plink: PostLinkDownloadInfo, filters: Iterable[PostLinkFilter | None]) -> PostLinkFilter | None:
     for ffilter in filters:
-        if ffilter.filters_out(plink):
+        if ffilter and ffilter.filters_out(plink):
             return ffilter
     return None
 

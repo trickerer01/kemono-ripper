@@ -6,6 +6,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 #
 
+import datetime
 import pathlib
 import re
 from argparse import ArgumentError
@@ -18,8 +19,10 @@ from .api import APIAddress, APIService, PostPageScanResult
 from .defs import (
     CONNECT_TIMEOUT_BASE,
     CONNECT_TIMEOUT_SOCKET_READ,
+    FMT_DATE,
     LOGGING_FLAGS,
     MAX_JOBS_MAX,
+    DateRange,
     NumRange,
 )
 from .logger import Log
@@ -176,9 +179,34 @@ def valid_range(range_str: str) -> NumRange:
         range_str = range_str or f'0-{2 ** 40:d}'
         parts = range_str.split('-', maxsplit=2)
         assert len(parts) == 2
-        rmin = valid_number(parts[0], lb=0.0, ub=float(2 ** 40), rfloat=True)
-        rmax = valid_number(parts[1], lb=rmin, ub=float(2 ** 40), rfloat=True)
+        rmin = valid_number(parts[0] or 0., lb=0.0, ub=float(2 ** 40), rfloat=True)
+        rmax = valid_number(parts[1] or float(2 ** 40), lb=rmin, ub=float(2 ** 40), rfloat=True)
         return NumRange(rmin, rmax)
+    except Exception:
+        raise ArgumentError
+
+
+def valid_date(date_str: str) -> datetime.date:
+    try:
+        dtime = datetime.datetime.strptime(date_str, FMT_DATE)
+        return dtime.date()
+    except Exception:
+        raise ArgumentError
+
+
+def valid_date_range(date_range_str: str) -> DateRange:
+    try:
+        epoch_start_str = '1970-01-01'
+        today_str = datetime.date.today().strftime(FMT_DATE)
+        date_range_str = date_range_str or f'{epoch_start_str}-{today_str}'
+        parts = date_range_str.split('..', maxsplit=1)
+        assert len(parts) == 2
+        rmin_str, rmax_str = tuple(parts)
+        rmin_str = rmin_str or epoch_start_str
+        rmax_str = rmax_str or today_str
+        rmin = valid_date(rmin_str)
+        rmax = valid_date(rmax_str)
+        return DateRange(rmin, rmax)
     except Exception:
         raise ArgumentError
 

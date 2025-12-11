@@ -39,6 +39,7 @@ from .config import Config, ExternalURLHandlerConfig, MegaConfig
 from .defs import SITE_MEGA
 from .filters import (
     LSPostFilter,
+    PostDateFilter,
     PostIdFilter,
     PostLinkExtFilter,
     PostLinkFilter,
@@ -133,11 +134,12 @@ class KemonoDownloader:
         self._kemono: Final[Kemono] = kemono
         self._post_info: Final[dict[str, PostDownloadInfo]] = {}
 
-        self._post_filters: list[LSPostFilter] = [
-            *((PostIdFilter(Config.filter_post_ids),) if Config.filter_post_ids else ()),
+        self._post_filters: list[LSPostFilter | None] = [
+            PostIdFilter(Config.filter_post_ids) if Config.filter_post_ids else None,
+            PostDateFilter(Config.filter_post_dates) if Config.filter_post_dates else None,
         ]
-        self._post_link_filters: list[PostLinkFilter] = [
-            *((PostLinkExtFilter(Config.filter_extensions),) if Config.filter_extensions else ()),
+        self._post_link_filters: list[PostLinkFilter | None] = [
+            PostLinkExtFilter(Config.filter_extensions) if Config.filter_extensions else None,
         ]
 
         self._queue_produce: deque[PostDownloadInfo] = deque()

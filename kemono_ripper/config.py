@@ -12,7 +12,7 @@ from typing import Protocol, TypedDict
 
 from aiohttp import ClientTimeout
 
-from .defs import CONFIG_NAME_DEFAULT, CONNECT_TIMEOUT_SOCKET_READ, SITE_MEGA, NumRange, SupportedExternalWebsite
+from .defs import CONFIG_NAME_DEFAULT, CONNECT_TIMEOUT_SOCKET_READ, SITE_MEGA, DateRange, NumRange, SupportedExternalWebsite
 
 if False is True:  # for hinting only
     from .api import APIAddress, APIService, PostPageScanResult  # noqa: I001
@@ -52,6 +52,7 @@ class BaseConfig:
         'cookie': 'extra_cookies',
         'post_id': 'post_ids',
         'ids': 'filter_post_ids',
+        'dates': 'filter_post_dates',
         'ext': 'filter_extensions',
     }
 
@@ -83,6 +84,7 @@ class BaseConfig:
         self.filter_filesize: NumRange | None = None
         self.filter_filename: str | None = None
         self.filter_post_ids: NumRange | None = None
+        self.filter_post_dates: DateRange | None = None
         self.filter_extensions: list[str] | None = None
         self.src_file: pathlib.Path | None = None
         self.max_jobs: int | None = None

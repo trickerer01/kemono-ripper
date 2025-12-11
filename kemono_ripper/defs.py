@@ -6,6 +6,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 #
 
+import datetime
 from enum import Enum, IntEnum
 from typing import NamedTuple
 
@@ -29,6 +30,7 @@ SCAN_CANCEL_KEYCOUNT = 2
 SLASH = '/'
 UTF8 = 'utf-8'
 JSON_INDENT_DEFAULT = 4
+FMT_DATE = '%Y-%m-%d'
 
 
 class SupportedExternalWebsite(str, Enum):
@@ -93,7 +95,8 @@ HELP_ARG_POST_URL = 'Full url to post page'
 HELP_ARG_POST_FILE = 'Full path to target text file'
 HELP_ARG_POST_TAG = 'Post tags. List of popular tags can be fetched using \'post tags dump\' command'
 HELP_ARG_SEARCH_STRING = 'Search query string'
-HELP_ARG_FILTER_POST_ID_RANGE = 'Post id range'
+HELP_ARG_FILTER_POST_ID_RANGE = 'Post id range. Example: \'120000000-150000000\'. Not all post ids are numeric!'
+HELP_ARG_FILTER_POST_DATE_RANGE = 'Post date range in format YYYY-MM-DD. Example 1: \'1970-01-01..2040-01-01\'. Example 2: \'2025-12-01..\''
 HELP_ARG_FILTER_FILEEXT = 'Only download files with given extensions. Can be used multiple times. Example: \'--ext .mp4 --ext .png\''
 HELP_ARG_FILTER_FILENAME = 'File name filter (pattern)'
 
@@ -101,6 +104,14 @@ HELP_ARG_FILTER_FILENAME = 'File name filter (pattern)'
 class NumRange(NamedTuple):
     min: float
     max: float
+
+    def __bool__(self) -> bool:
+        return any(bool(getattr(self, _)) for _ in self._fields)
+
+
+class DateRange(NamedTuple):
+    mindate: datetime.date
+    maxdate: datetime.date
 
     def __bool__(self) -> bool:
         return any(bool(getattr(self, _)) for _ in self._fields)

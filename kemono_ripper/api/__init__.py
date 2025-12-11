@@ -1,5 +1,5 @@
 from .api import Kemono
-from .defs import DOWNLOAD_MODE_DEFAULT, DOWNLOAD_MODES, DownloadMode, Mem, NumRange
+from .defs import DOWNLOAD_MODE_DEFAULT, DOWNLOAD_MODES, DownloadMode, Mem
 from .exceptions import KemonoAPIError, KemonoErrorCodes
 from .options import KemonoOptions
 from .request_queue import RequestQueue
@@ -60,7 +60,6 @@ __all__ = (
     'ListedPostFile',
     'ListedPostFile',
     'Mem',
-    'NumRange',
     'PostDownloadInfo',
     'PostLinkDownloadInfo',
     'PostPageScanResult',
