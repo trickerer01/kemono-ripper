@@ -133,6 +133,7 @@ class HelpPrintExitException(Exception):
 def parse_logging_args(args: Sequence[str]) -> None:
     parser = ArgumentParser(add_help=False)
     add_logging_args(parser)
+    parser.set_defaults(log_level=log_level(LOGGING_DEFAULT.name.lower()))
     parsed = parser.parse_known_args(args)
     Config.logging_flags = parsed[0].log_level
     Config.disable_log_colors = parsed[0].disable_log_colors
