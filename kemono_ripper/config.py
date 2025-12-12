@@ -66,7 +66,7 @@ class BaseConfig:
         self.search_tags: list[str] | None = None
         self.post_ids: list[str] | None = None
         '''post scan id, post rip id'''
-        self.creator_id: int | None = None
+        self.creator_id: str | None = None
         '''post scan id, post rip id'''
         self.same_creator: bool | None = None
         '''same creator for all posts being scanned see `post list`'''

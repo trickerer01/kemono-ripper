@@ -28,7 +28,7 @@ from .defs import (
 from .logger import Log
 from .util import build_regex_from_pattern
 
-re_post_page = re.compile(fr'({"|".join(APIAddress.__args__)})/({"|".join(APIService.__args__)})(?:/user/(\d+))?/post/(\w+)')
+re_post_page = re.compile(fr'({"|".join(APIAddress.__args__)})/({"|".join(APIService.__args__)})(?:/user/(\w+))?/post/(\w+)')
 re_ext = re.compile(r'^\.\w{2,5}$')
 
 
@@ -143,7 +143,7 @@ def valid_post_url(url_str: str, absolute=True) -> PostPageScanResult:
         post_page_match = re_post_page.search(str(url))
         api_address = post_page_match.group(1)
         service = post_page_match.group(2)
-        cid = positive_int(post_page_match.group(3))
+        cid = post_page_match.group(3)
         pid = post_page_match.group(4)
         assert pid
         return PostPageScanResult(pid, cid, service, api_address)

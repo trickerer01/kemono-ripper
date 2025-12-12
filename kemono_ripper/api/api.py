@@ -223,7 +223,7 @@ class Kemono:
         creator_id = link.creator_id
         if not creator_id:
             post: FreePost = await self._query_api(GetFreePostAction(self._api_address, link.service, link.post_id))
-            creator_id = int(post['artist_id'])
+            creator_id = post['artist_id']
         post: ScannedPost = await self._query_api(GetCreatorPostAction(self._api_address, link.service, creator_id, link.post_id))
         return post
 
@@ -238,7 +238,7 @@ class Kemono:
         creators: list[Creator] = await self._query_api(GetCreatorsAction(self._api_address))
         return creators
 
-    async def list_posts(self, creator_id: int) -> list[ListedPost]:
+    async def list_posts(self, creator_id: str) -> list[ListedPost]:
         all_posts: list[ListedPost] = []
         offset = 0
         while len(all_posts) % POSTS_PER_PAGE == 0:

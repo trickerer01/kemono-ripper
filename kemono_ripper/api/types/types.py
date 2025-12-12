@@ -22,7 +22,7 @@ APIEndpoint: TypeAlias = Literal['creators', APIEndpointFormat]
 
 class PostPageScanResult(NamedTuple):
     post_id: str
-    creator_id: int
+    creator_id: str
     service: APIService
     api_address: APIAddress
 
@@ -176,7 +176,7 @@ class PostListedTag(TypedDict):
 
 
 APIResponse: TypeAlias = list[Creator] | list[ListedPost] | FreePost | ScannedPost | list[PostListedTag] | SearchedPosts
-APIEndpointParams: TypeAlias = tuple[str | int, ...] | tuple[str, str, list[str]] | tuple
+APIEndpointParams: TypeAlias = tuple[str], tuple[str, str] | tuple[str, str, str] | tuple[str, str, list[str]]
 APIRequestParams: TypeAlias = dict[str, str | int]
 APIRequestData: TypeAlias = dict[str, str | APIRequestParams]
 

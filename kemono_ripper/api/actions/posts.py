@@ -31,11 +31,11 @@ class SearchPostsAction(APIFetchAction):
 
 
 class GetCreatorPostsAction(APIFetchAction):
-    def __init__(self, api_addr: APIAddress, service: APIService, creator_id: int, offset: int) -> None:
+    def __init__(self, api_addr: APIAddress, service: APIService, creator_id: str, offset: int) -> None:
         self._setup(api_addr, service, creator_id, offset)
         super().__init__()
 
-    def _setup(self, api_addr: APIAddress, service: APIService, creator_id: int, offset: int) -> None:
+    def _setup(self, api_addr: APIAddress, service: APIService, creator_id: str, offset: int) -> None:
         self._api_address = api_addr
         self._method = 'GET'
         self._endpoint = '{}/user/{}/posts'
@@ -67,11 +67,11 @@ class GetFreePostAction(APIFetchAction):
 
 
 class GetCreatorPostAction(APIFetchAction):
-    def __init__(self, api_addr: APIAddress, service: APIService, creator_id: int, post_id: str) -> None:
+    def __init__(self, api_addr: APIAddress, service: APIService, creator_id: str, post_id: str) -> None:
         self._setup(api_addr, service, creator_id, post_id)
         super().__init__()
 
-    def _setup(self, api_addr: APIAddress, service: APIService, creator_id: int, post_id: str) -> None:
+    def _setup(self, api_addr: APIAddress, service: APIService, creator_id: str, post_id: str) -> None:
         self._api_address = api_addr
         self._method = 'GET'
         self._endpoint = '{}/user/{}/post/{}'

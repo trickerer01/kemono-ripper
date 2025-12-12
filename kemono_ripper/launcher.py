@@ -95,28 +95,39 @@ def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageS
         line = line.strip(' \n\ufeff').replace(HTTP_PREFIX, HTTPS_PREFIX)
         if not line:
             continue
-        parts = tuple(line.split(' ', maxsplit=1))
+        parts = tuple(line.split(' '))
+        # supported separators creator:post, creator/post, etc.
         if len(parts) == 1 and parts[0][0].isnumeric():
             parts = tuple(parts[0].split(':', maxsplit=1))
             if len(parts) == 1:
                 parts = tuple(parts[0].split('/', maxsplit=1))
-        if len(parts) == 1:
-            single_part = parts[0]
-            # single post id
-            if not single_part.replace(HTTPS_PREFIX, '').startswith(APIAddress.__args__):
-                links.append(PostPageScanResult(single_part, 0, kemono.api_service, kemono.api_address))
-            # full url
-            else:
-                try:
-                    scanned_post = valid_post_url(single_part, False)
-                    links.append(scanned_post)
-                except ArgumentError:
-                    raise ValueError(f'Unable to parse post url from \'{line}\' at line {index + 1:d}')
-        else:  # if len(parts) == 2
-            # creator id + post id
-            creator_id, post_id = parts
-            assert creator_id.isnumeric(), f'Unable to parse creator info from C+P \'{line}\' at line {index + 1:d}'
-            links.append(PostPageScanResult(post_id, int(creator_id), kemono.api_service, kemono.api_address))
+        if not parts[0].replace(HTTPS_PREFIX, '').startswith(APIAddress.__args__):
+            if len(parts) == 1:
+                post_id = parts[0]
+                if post_id.isnumeric():
+                    Log.debug(f'Parsed single post id {post_id} from \'{line}\' at line {index + 1:d}')
+                    links.append(PostPageScanResult(post_id, '', kemono.api_service, kemono.api_address))
+                    continue
+                else:
+                    Log.warn(f'Unsupported from creator+post pair from \'{line}\' at line {index + 1:d}')
+            if len(parts) == 2:
+                creator_id, post_id = parts
+                if creator_id.isnumeric():
+                    Log.debug(f'Parsed single creator+post pair {creator_id}+{post_id} from \'{line}\' at line {index + 1:d}')
+                    links.append(PostPageScanResult(post_id, creator_id, kemono.api_service, kemono.api_address))
+                    continue
+                else:
+                    Log.debug(f'Unable to parse creator info from creator+post pair from \'{line}\' at line {index + 1:d}')
+        part_errors: list[str] = []
+        for part_idx, single_part in enumerate(parts):
+            try:
+                scanned_post = valid_post_url(single_part, False)
+                Log.debug(f'Parsed post url {single_part} (index {part_idx:d}) at line {index + 1:d}')
+                links.append(scanned_post)
+            except ArgumentError:
+                part_errors.append(single_part)
+        if part_errors:
+            Log.warn(f'Unable to parse post url from \'{", ".join(part_errors)}\' at line {index + 1:d}')
     return links
 
 
@@ -179,7 +190,7 @@ async def post_scan_id(kemono: Kemono, *, download=False) -> None:
         posts = await kemono.scan_posts([link])
         results.extend(posts)
         if Config.same_creator:
-            creator_id = creator_id or int(posts[0]['post']['user'])
+            creator_id = creator_id or posts[0]['post']['user']
     await _process_scan_results(kemono, results, download=download)
 
 
