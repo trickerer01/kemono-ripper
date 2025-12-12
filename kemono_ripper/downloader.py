@@ -154,6 +154,8 @@ class KemonoDownloader:
         self._already_exist_count: dict[str, int] = defaultdict(int)
         self._skipped_count: dict[str, int] = defaultdict(int)
         self._404_count: dict[str, int] = defaultdict(int)
+        self._external_count: dict[str, int] = defaultdict(int)
+        self._unsupported_count: dict[str, int] = defaultdict(int)
 
         self._downloads_active: dict[PostDownloadInfo, list[PostLinkDownloadInfo]] = defaultdict(list[PostLinkDownloadInfo])
         self._writes_active: dict[PostDownloadInfo, list[PostLinkDownloadInfo]] = defaultdict(list[PostLinkDownloadInfo])
@@ -163,10 +165,8 @@ class KemonoDownloader:
         self._active_downloads_lock: Final[AsyncLock] = AsyncLock()
         self._active_writes_lock: Final[AsyncLock] = AsyncLock()
 
-        self._gather_post_download_info(posts)
+        self._orig_count: Final[int] = self._gather_post_download_info(posts)
         self._queue_produce.extend(post for _, post in self._post_info.items())
-
-        self._orig_count: Final[int] = len(posts)
 
         if handler_mega:
             register_external_downloader(SITE_MEGA, MegaURLHandler())
@@ -199,6 +199,10 @@ class KemonoDownloader:
                 self._failed_items[post].append(plink)
             elif result == DownloadResult.SUCCESS:
                 self._downloaded_count[post.post_id] += 1
+            elif result == DownloadResult.HANDLED_EXTERNALLY:
+                self._external_count[post.post_id] += 1
+            elif result == DownloadResult.FAIL_UNSUPPORTED:
+                self._unsupported_count[post.post_id] += 1
 
     async def _at_post_start(self, post: PostDownloadInfo) -> None:
         async with self._active_downloads_lock:
@@ -218,10 +222,11 @@ class KemonoDownloader:
             skipped = len([_ for _ in results if _ == DownloadResult.FAIL_SKIPPED])
             filtered = len([_ for _ in results if _ == DownloadResult.FAIL_FILTERED_OUTER])
             unsupported = len([_ for _ in results if _ == DownloadResult.FAIL_UNSUPPORTED])
+            external = len([_ for _ in results if _ == DownloadResult.HANDLED_EXTERNALLY])
             if len(results) > unsupported:
                 Log.info(f'[queue] post {pid}: Done: {len(post.links):d} links: {success:d} downloaded, {fail_tries:d} failed,'
                          f' {skipped:d} skipped, {filtered:d} filtered out, {exists:d} already exists, {fail_404:d} not found,'
-                         f' {unsupported:d} unsupported')
+                         f' {unsupported:d} unsupported, {external:d} handled externally')
             else:
                 links_str = '\n'.join(plink.url.human_repr() for _, plink in post.links.items())
                 Log.info(f'[queue] post {pid}: None of {len(post.links):d} links are supported:\n{links_str}')
@@ -247,12 +252,9 @@ class KemonoDownloader:
         if handler_ex.valid():
             Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
             mresults = await handler_ex.download(plink_id=plink_id, url=url_str, config=MegaConfig(Config, dest_base=plink.path))
-            if Config.download_mode == DownloadMode.SKIP:
-                dresult = DownloadResult.SUCCESS
-            elif all(isinstance(_, pathlib.Path) for _ in mresults):
-                dresult = DownloadResult.SUCCESS if all(_.is_file() for _ in mresults) else DownloadResult.FAIL_RETRIES
-            else:
-                dresult = DownloadResult.FAIL_RETRIES
+            succ_count = len([_.is_file() for _ in mresults])
+            Log.info(f'{plink_id}: {handler_ex.app_name()} handled {url_str} with {succ_count:d} / {len(mresults):d} success')
+            dresult = DownloadResult.HANDLED_EXTERNALLY
         elif not self.is_link_supported(plink.url):
             Log.warn(f'{plink_id}: Skipping unsupported link format {url_str}...')
             dresult = DownloadResult.FAIL_UNSUPPORTED
@@ -312,23 +314,30 @@ class KemonoDownloader:
 
     async def _after_download(self) -> None:
         newline = '\n'
-        Log.info('Done')
-        # Log.info(f'\nDone. {self._downloaded_count:d} / {self._orig_count:d} file(s) downloaded, '  # TODO: calculate totals
-        #          f'{self._already_exist_count:d} already existed, {self._skipped_count:d} skipped, {self._404_count:d} not found')
+        downloaded_count = sum(self._downloaded_count.values())
+        already_exist_count = sum(self._already_exist_count.values())
+        skipped_count = sum(self._skipped_count.values())
+        not_found_count = sum(self._404_count.values())
+        external_count = sum(self._external_count.values())
+        unsupported_count = sum(self._unsupported_count.values())
+        Log.info(f'\nDone. {downloaded_count:d} / {self._orig_count:d} post links downloaded, '
+                 f'{already_exist_count:d} already existed, {skipped_count:d} skipped, {not_found_count:d} not found, '
+                 f'{unsupported_count:d} unsupported, {external_count:d} handled externally')
         if len(self._queue_produce) > 0:
             Log.fatal(f'total queue is still at {len(self._queue_produce):d} != 0!')
         if len(self._writes_active) > 0:
             Log.fatal(f'active writes count is still at {len(self._writes_active):d} != 0!')
         if len(self._failed_items) > 0:
-            fitems = ['\n'.join([f'{post.creator_id:d}:{post.post_id} {plink.url.human_repr()} => {plink.local_path}'
+            fitems = ['\n'.join([f'{post.original_post["post"]["service"]}:{post.creator_id:d}:{post.post_id}'
+                                 f' {plink.url.human_repr()} => {plink.local_path}'
                                  for plink in plinks]) for post, plinks in self._failed_items.items()]
             Log.fatal(f'\nFailed items:\n{newline.join(fitems)}')
 
     async def run(self) -> None:
         for cv in as_completed([self._prod(), *(self._cons() for _ in range(Config.max_jobs))]):
             await cv
-        await self._after_download()
         await self._queue_consume.join()
+        await self._after_download()
 
     async def is_writing(self, post: PostDownloadInfo) -> bool:
         async with self._active_writes_lock:
@@ -359,7 +368,7 @@ class KemonoDownloader:
                 return self._queue_produce.popleft()
         return None
 
-    def _gather_post_download_info(self, scanned_posts: Iterable[ScannedPost]) -> None:
+    def _gather_post_download_info(self, scanned_posts: Iterable[ScannedPost]) -> int:
         def next_file_name(name_base: str) -> str:
             next_file_name.name_idx = getattr(next_file_name, 'name_idx', 0) + 1
             return f'{next_file_name.name_idx:02d}_{name_base}'
@@ -444,6 +453,7 @@ class KemonoDownloader:
             post_strings.append(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links:\n{links_str}')
 
         Log.info('\n'.join(post_strings))
+        return sum(len(_.links) for _ in self._post_info.values())
 
     @staticmethod
     def extract_link_name(url: URL) -> str:
