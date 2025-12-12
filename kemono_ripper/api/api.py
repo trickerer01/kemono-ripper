@@ -106,6 +106,7 @@ class Kemono:
         use_proxy = bool(self._proxy)
         if use_proxy:
             connector = ProxyConnector.from_url(self._proxy, limit=self._max_jobs)
+            Log.trace(f'Using proxy {self._proxy}...')
         else:
             connector = TCPConnector(limit=self._max_jobs)
         session = ClientSession(connector=connector, read_bufsize=Mem.MB, timeout=self._timeout)
@@ -160,16 +161,16 @@ class Kemono:
             Log.error('Unable to connect. Aborting')
         raise ConnectionError
 
-    async def _download(self, action: APIDownloadAction) -> tuple[int, KemonoErrorCodes]:
+    async def _download(self, action: APIDownloadAction) -> KemonoErrorCodes:
         if ffilter := any_filter_matching(action.post, action.post_link, self._filters):
             Log.info(f'File {action.post_link.local_path} was filtered out by {ffilter!s}. Skipped!')
-            return 0, KemonoErrorCodes.ESUCCESS
+            return KemonoErrorCodes.ESUCCESS
 
         if self._download_mode == DownloadMode.SKIP:
-            return 0, KemonoErrorCodes.ESUCCESS
-        elif self._download_mode == DownloadMode.TOUCH:
+            return KemonoErrorCodes.ESUCCESS
+        elif self._download_mode == DownloadMode.TOUCH and not action.post_link.path.is_file():
             with open(action.post_link.path, 'wb'):
-                return 0, KemonoErrorCodes.ESUCCESS
+                return KemonoErrorCodes.ESUCCESS
 
         if self._session is None:
             self._session = self._make_session()
@@ -182,19 +183,25 @@ class Kemono:
                 file_size = action.post_link.path.stat().st_size if action.post_link.path.is_file() else 0
                 hkwargs: dict[str, dict[str, str]] = {'headers': {'Range': f'bytes={file_size:d}-'} if file_size > 0 else {}}
                 async with await self._wrap_request(action, try_num=try_num, **hkwargs) as r:
+                    content_len: int = r.content_length or 0
+                    content_range_s = str(r.headers.get('Content-Range', '/')).split('/', 1)
+                    content_range = int(content_range_s[1]) if len(content_range_s) > 1 and content_range_s[1].isnumeric() else 1
+                    if (content_len == 0 or r.status == 416) and file_size >= content_range:
+                        Log.warn(f'{action.post_link.local_path}) is already completed, size: {file_size:d} ({file_size / Mem.MB:.2f} Mb)')
+                        return KemonoErrorCodes.EEXISTS
                     if r.status == 404:
                         Log.error(f'Got 404 for {action.get_url().human_repr()}...!')
                         # try_num = self._retries
                         raise RequestError(KemonoErrorCodes.ENOTFOUND)
                     r.raise_for_status()
-                    content_len: int = r.content_length or 0
+                    action.post_link.expected_size = file_size + content_len
                     assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url().human_repr()}! Retrying...'
                     action.post_link.path.parent.mkdir(parents=True, exist_ok=True)
-                    async with async_open(action.post_link.path, 'wb') as output_file:
+                    async with async_open(action.post_link.path, 'ab') as output_file:
                         async for chunk in r.content.iter_chunked(128 * Mem.KB):
                             await output_file.write(chunk)
                             bytes_written += len(chunk)
-                return bytes_written, KemonoErrorCodes.ESUCCESS
+                return KemonoErrorCodes.ESUCCESS
             except Exception as e:
                 Log.error(f'{action.post_link.local_path}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
                 if (r is None or r.status != 403) and not isinstance(e, (ClientPayloadError, ClientConnectorError)):
@@ -207,9 +214,8 @@ class Kemono:
                     await sleep(random.uniform(*CONNECT_RETRY_DELAY))
                 continue
 
-        if try_num > self._retries:
-            Log.error('Unable to connect. Aborting')
-        raise ConnectionError
+        Log.error(f'Unable to connect. Aborting {action.post_link.local_path}')
+        return KemonoErrorCodes.ECONNECT
 
     async def _scan_post(self, link: PostPageScanResult) -> ScannedPost:
         assert link.service
@@ -236,8 +242,8 @@ class Kemono:
         all_posts: list[ListedPost] = []
         offset = 0
         while len(all_posts) % POSTS_PER_PAGE == 0:
-            Log.info(f'Page {offset // POSTS_PER_PAGE + 1:d}...')
             posts: list[ListedPost] = await self._query_api(GetCreatorPostsAction(self._api_address, self._service, creator_id, offset))
+            Log.info(f'Page {offset // POSTS_PER_PAGE + 1:d}...')
             all_posts.extend(posts)
             offset += POSTS_PER_PAGE
         return all_posts
@@ -246,8 +252,8 @@ class Kemono:
         all_posts: list[SearchedPost] = []
         offset = 0
         while len(all_posts) % POSTS_PER_PAGE == 0:
-            Log.info(f'Page {offset // POSTS_PER_PAGE + 1:d}...')
             posts: SearchedPosts = await self._query_api(SearchPostsAction(self._api_address, query, offset, tags))
+            Log.info(f'Page {offset // POSTS_PER_PAGE + 1:d} / {(int(posts["count"]) + POSTS_PER_PAGE - 1) // POSTS_PER_PAGE}...')
             posts_list = posts['posts']
             all_posts.extend(posts_list)
             offset += POSTS_PER_PAGE
@@ -257,7 +263,7 @@ class Kemono:
         post_tags: list[PostListedTag] = await self._query_api(GetPostTagsAction(self._api_address))
         return post_tags
 
-    async def download_url(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> tuple[int, KemonoErrorCodes]:
+    async def download_url(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> KemonoErrorCodes:
         result = await self._download(APIDownloadAction(post, plink))
         return result
 

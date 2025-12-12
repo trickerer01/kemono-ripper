@@ -244,6 +244,7 @@ class PostLinkDownloadInfo(NamedTuple):
     name: str
     url: URL
     path: pathlib.Path
+    expected_size: int
     status: DownloadStatus
 
     @property

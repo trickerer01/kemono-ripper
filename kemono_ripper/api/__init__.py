@@ -47,7 +47,6 @@ __all__ = (
     'Creator',
     'DownloadFlags',
     'DownloadMode',
-    'DownloadMode',
     'DownloadResult',
     'DownloadStatus',
     'FreePost',

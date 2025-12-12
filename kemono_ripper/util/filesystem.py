@@ -44,7 +44,6 @@ def extract_ext(href: str) -> str:
     ext_match = re_ext.search(href)
     return ext_match.group(1) if ext_match else ''
 
-
 #
 #
 #########################################

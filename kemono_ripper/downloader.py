@@ -24,6 +24,7 @@ from yarl import URL
 
 from .api import (
     APIAddress,
+    DownloadMode,
     DownloadResult,
     DownloadStatus,
     Kemono,
@@ -56,7 +57,6 @@ except ImportError:
 
 __all__ = ('KemonoDownloader',)
 
-
 SUPPORTED_TAGS = (
     ('a', 'href'),
     ('img', 'src'),
@@ -69,8 +69,10 @@ class ExternalURLHandler(Protocol):
 
     @staticmethod
     async def run(url: str, config: ExternalURLHandlerConfig) -> list[pathlib.Path]: ...
+
     @staticmethod
     def name() -> str: ...
+
     @staticmethod
     def app_name() -> str: ...
 
@@ -126,6 +128,8 @@ def register_external_downloader(host: str, handler: ExternalURLHandler) -> None
 
 
 EXTERNAL_URL_HANDLERS: dict[str, ExternalURLHandler] = {}
+
+
 # end external downloaders
 
 
@@ -144,6 +148,7 @@ class KemonoDownloader:
 
         self._queue_produce: deque[PostDownloadInfo] = deque()
         self._queue_consume: AsyncQueue[PostDownloadInfo] = AsyncQueue(Config.max_jobs)
+        self._post_link_download_semaphore: Semaphore = Semaphore(Config.max_jobs)
 
         self._downloaded_count: dict[str, int] = defaultdict(int)
         self._already_exist_count: dict[str, int] = defaultdict(int)
@@ -179,6 +184,9 @@ class KemonoDownloader:
 
     async def _at_post_link_finish(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
         async with self._active_downloads_lock:
+            if plink in self._downloads_active[post]:
+                self._downloads_active[post].remove(plink)
+                Log.trace(f'[queue] [{post.creator_id:d}:{post.post_id}] \'{plink.name}\' removed from active')
             post.completed.append(plink)
             result = plink.status.result
             if result == DownloadResult.FAIL_ALREADY_EXISTS:
@@ -222,8 +230,12 @@ class KemonoDownloader:
             Log.trace(f'[queue] post {post.post_id} \'{post.original_post["post"]["title"]}\' removed from active')
 
     async def _download_post(self, post: PostDownloadInfo) -> None:
+        async def download_post_link_wrapper(plink) -> None:
+            async with self._post_link_download_semaphore:
+                return await self._download_post_link(post, plink)
+
         post.status.state = State.DOWNLOADING
-        tasks = [self._download_post_link(post, plink) for _, plink in post.links.items()]
+        tasks = [download_post_link_wrapper(plink) for _, plink in post.links.items()]
         _ = await gather(*tasks)
 
     async def _download_post_link(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
@@ -235,25 +247,34 @@ class KemonoDownloader:
         if handler_ex.valid():
             Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
             mresults = await handler_ex.download(plink_id=plink_id, url=url_str, config=MegaConfig(Config, dest_base=plink.path))
-            dresult = DownloadResult.SUCCESS if mresults and all(bool(_) and _.is_file() for _ in mresults) else DownloadResult.FAIL_RETRIES
+            if Config.download_mode == DownloadMode.SKIP:
+                dresult = DownloadResult.SUCCESS
+            elif all(isinstance(_, pathlib.Path) for _ in mresults):
+                dresult = DownloadResult.SUCCESS if all(_.is_file() for _ in mresults) else DownloadResult.FAIL_RETRIES
+            else:
+                dresult = DownloadResult.FAIL_RETRIES
         elif not self.is_link_supported(plink.url):
             Log.warn(f'{plink_id}: Skipping unsupported link format {url_str}...')
             dresult = DownloadResult.FAIL_UNSUPPORTED
-        elif plink.path.is_file():
-            Log.warn(f'{plink_id}: File {plink.local_path} already exists! Skipped.')
-            dresult = DownloadResult.FAIL_ALREADY_EXISTS
         else:
             Log.info(f'{plink_id} Processing {url_str} => {plink.local_path}')
             plink.status.state = State.DOWNLOADING
             await self.add_to_writes(post, plink, True)
-            bytes_written, ec = await self._kemono.download_url(post, plink)
+            ec = await self._kemono.download_url(post, plink)
             await self.remove_from_writes(post, plink, True)
             if plink.path.is_file():
-                assert plink.path.stat().st_size == bytes_written
-                Log.info(f'{plink_id}: Completed, {plink.local_path}, size: {bytes_written / Mem.MB:.2f} MB')
-            else:
+                file_size = plink.path.stat().st_size
+                assert file_size == plink.expected_size, (
+                    f'Bytes written mismatch for {plink.local_path}'
+                    f' (size {file_size :d} vs expected {plink.expected_size:d})')
+                Log.info(f'{plink_id}: Completed, {plink.local_path}, size: {file_size / Mem.MB:.2f} MB')
+            elif Config.download_mode != DownloadMode.SKIP:
                 Log.warn(f'{plink_id}: Failed: {ec!s}')
-            dresult = DownloadResult.SUCCESS if ec == KemonoErrorCodes.ESUCCESS else DownloadResult.FAIL_RETRIES
+            dresult = (
+                DownloadResult.SUCCESS if ec == KemonoErrorCodes.ESUCCESS
+                else DownloadResult.FAIL_ALREADY_EXISTS if ec == KemonoErrorCodes.EEXISTS
+                else DownloadResult.FAIL_RETRIES
+            )
         plink.status.result = dresult
         plink.status.state = State.FAILED if ((1 << plink.status.result) & DownloadResult.RESULT_MASK_CRITICAL) else State.DONE
         await self._at_post_link_finish(post, plink)
@@ -409,7 +430,7 @@ class KemonoDownloader:
                     link_full = link_base
 
                 lpath = Config.dest_base / user / pid / sanitize_filename(next_file_name(name))
-                plink = PostLinkDownloadInfo(name, link_full, lpath, DownloadStatus())
+                plink = PostLinkDownloadInfo(name, link_full, lpath, 0, DownloadStatus())
 
                 if plfilter := any_filter_matching_post_link(plink, self._post_link_filters):
                     Log.warn(f'[{user}:{pid}] {title}: file \'{name}\' was filtered out by {plfilter!s}. Skipped!')

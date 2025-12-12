@@ -60,7 +60,6 @@ if __name__ == '__main__':
     write_revision_date()
     write_revision_date_toml()
 
-
 #
 #
 #########################################

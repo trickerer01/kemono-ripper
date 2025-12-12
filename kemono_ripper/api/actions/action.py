@@ -36,10 +36,13 @@ class APIAction(ABC):
 
     @abstractmethod
     def _validate(self) -> None: ...
+
     @abstractmethod
     def as_api_request_data(self) -> APIRequestData: ...
+
     @abstractmethod
     def get_url(self) -> URL: ...
+
     @abstractmethod
     def __str__(self) -> str: ...
 
@@ -48,6 +51,7 @@ class APIFetchAction(APIAction):
     """
     Fetch action is only for querying API itself, FIFO, avoid simultaneous requests!
     """
+
     def _validate(self) -> None:
         assert self._endpoint.count('{}') == len(self._endpoint_params)
 

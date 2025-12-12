@@ -11,15 +11,19 @@ from enum import IntEnum
 
 class KemonoErrorCodes(IntEnum):
     ESUCCESS = 0
+    EEXISTS = 1
     ENOTFOUND = -1
+    ECONNECT = -2
 
     def __str__(self) -> str:
         return f'{self.name} ({self.value:d})'
 
 
 KEMONO_ERROR_DESCRIPTION: dict[KemonoErrorCodes, tuple[str, str]] = {
-    KemonoErrorCodes.ESUCCESS: ('ESUCCESS', 'Opration completed successfully'),
+    KemonoErrorCodes.ESUCCESS: ('ESUCCESS', 'Operation completed successfully'),
+    KemonoErrorCodes.EEXISTS: ('EEXISTS', 'File already exists'),
     KemonoErrorCodes.ENOTFOUND: ('ENOTFOUND', 'No post, creator or file exists at pointed URL'),
+    KemonoErrorCodes.ECONNECT: ('ECONNECT', 'General connection error'),
 }
 
 

@@ -16,6 +16,7 @@ __all__ = ('Filter', 'any_filter_matching')
 
 class Filter(Protocol):
     def filters_out(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> bool: ...
+
     def __str__(self) -> str: ...
 
 

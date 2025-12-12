@@ -38,6 +38,7 @@ class FileNameFilter:
     """
     Filters files by file name pattern (regex)
     """
+
     def __init__(self, pattern: str) -> None:
         self._regex = build_regex_from_pattern(pattern)
 
@@ -55,6 +56,7 @@ LSPost: TypeAlias = ScannedPost | SearchedPost | ListedPost
 
 class LSPostFilter(Protocol):
     def filters_out(self, post: LSPost) -> bool: ...
+
     def __str__(self) -> str: ...
 
 
@@ -69,6 +71,7 @@ class PostIdFilter:
     """
     Filters posts by post id
     """
+
     def __init__(self, prange: NumRange) -> None:
         self._range = prange
 
@@ -84,6 +87,7 @@ class PostDateFilter:
     """
     Filters posts by post publish date
     """
+
     def __init__(self, drange: DateRange) -> None:
         self._range = drange
 
@@ -98,6 +102,7 @@ class PostDateFilter:
 
 class PostLinkFilter(Protocol):
     def filters_out(self, plink: PostLinkDownloadInfo) -> bool: ...
+
     def __str__(self) -> str: ...
 
 
@@ -112,6 +117,7 @@ class PostLinkExtFilter:
     """
     Filters posts links by post link file extension
     """
+
     def __init__(self, extensions: Iterable[str]) -> None:
         self._extensions = list(extensions)
 

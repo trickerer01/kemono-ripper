@@ -44,12 +44,14 @@ def _process_list_scan_results(kemono: Kemono, results: Sequence[ListedPost] | S
                f' {len(lpost["attachments"]):d} attachments')
         listing.append(msg)
     for msg in (
-        f'\n{len(results) - len(listing):d} / {len(results):d} posts were filtered out by {post_ids_filter!s}' if post_ids_filter else '',
-        f'\n{len(results) - len(listing):d} / {len(results):d} posts were filtered out by {post_date_filter!s}' if post_date_filter else '',
+        ' ',
+        f'{len(results) - len(listing):d} / {len(results):d} posts were filtered out by {post_ids_filter!s}' if post_ids_filter else '',
+        f'{len(results) - len(listing):d} / {len(results):d} posts were filtered out by {post_date_filter!s}' if post_date_filter else '',
         f'{len(listing):d} posts found ({len(results) - len(listing):d} / {len(results):d}) filtered out',
         *listing,
     ):
-        Log.info(f'{msg}')
+        if msg:
+            Log.info(f'{msg}')
 
 
 async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], *, download=False) -> None:
