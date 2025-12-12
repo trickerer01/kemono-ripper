@@ -166,11 +166,10 @@ class Kemono:
             Log.info(f'File {action.post_link.local_path} was filtered out by {ffilter!s}. Skipped!')
             return KemonoErrorCodes.ESUCCESS
 
-        if self._download_mode == DownloadMode.SKIP:
+        if self._download_mode != DownloadMode.FULL:
+            if self._download_mode == DownloadMode.TOUCH:
+                action.post_link.path.touch(exist_ok=True)
             return KemonoErrorCodes.ESUCCESS
-        elif self._download_mode == DownloadMode.TOUCH and not action.post_link.path.is_file():
-            with open(action.post_link.path, 'wb'):
-                return KemonoErrorCodes.ESUCCESS
 
         if self._session is None:
             self._session = self._make_session()
@@ -194,7 +193,7 @@ class Kemono:
                         # try_num = self._retries
                         raise RequestError(KemonoErrorCodes.ENOTFOUND)
                     r.raise_for_status()
-                    action.post_link.expected_size = file_size + content_len
+                    action.post_link.status.expected_size = file_size + content_len
                     assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url().human_repr()}! Retrying...'
                     action.post_link.path.parent.mkdir(parents=True, exist_ok=True)
                     async with async_open(action.post_link.path, 'ab') as output_file:

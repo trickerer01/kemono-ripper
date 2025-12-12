@@ -92,6 +92,8 @@ async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], 
 def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageScanResult]:
     links: list[PostPageScanResult] = []
     for index, line in enumerate(contents):
+        if (lines_range := Config.filter_file_lines) and not lines_range.min <= index + 1 <= lines_range.max:
+            continue
         line = line.strip(' \n\ufeff').replace(HTTP_PREFIX, HTTPS_PREFIX)
         if not line:
             continue
@@ -128,6 +130,7 @@ def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageS
                 part_errors.append(single_part)
         if part_errors:
             Log.warn(f'Unable to parse post url from \'{", ".join(part_errors)}\' at line {index + 1:d}')
+    Log.info(f'Parsed {len(links):d} links')
     return links
 
 
@@ -201,6 +204,7 @@ async def post_scan_url(kemono: Kemono, *, links: list[PostPageScanResult] | Non
 
 async def post_scan_file(kemono: Kemono, *, download=False) -> None:
     with open(Config.src_file, 'rt', encoding=UTF8) as infile_posts:
+        Log.info(f'Parsing \'.../{Config.src_file.relative_to(Config.src_file.parent.parent).as_posix()}\'...')
         post_links = _parse_posts_file(kemono, infile_posts)
     return await post_scan_url(kemono, links=post_links, download=download)
 

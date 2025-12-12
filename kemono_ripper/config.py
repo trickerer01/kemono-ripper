@@ -51,6 +51,7 @@ class BaseConfig:
         'header': 'extra_headers',
         'cookie': 'extra_cookies',
         'post_id': 'post_ids',
+        'lines': 'filter_file_lines',
         'ids': 'filter_post_ids',
         'dates': 'filter_post_dates',
         'ext': 'filter_extensions',
@@ -80,7 +81,7 @@ class BaseConfig:
         '''indentation for saved json files'''
         self.prune: bool | None = None
         '''prune extra info from dumps'''
-        self.per_website_config: dict[SupportedExternalWebsite, DownloaderConfig] = PER_WEBSITE_CONFIG_DEFAULT.copy()
+        self.filter_file_lines: NumRange | None = None
         self.filter_filesize: NumRange | None = None
         self.filter_filename: str | None = None
         self.filter_post_ids: NumRange | None = None
@@ -88,6 +89,8 @@ class BaseConfig:
         self.filter_extensions: list[str] | None = None
         self.src_file: pathlib.Path | None = None
         self.max_jobs: int | None = None
+        # no args
+        self.per_website_config: dict[SupportedExternalWebsite, DownloaderConfig] = PER_WEBSITE_CONFIG_DEFAULT.copy()
         # common
         self.dest_base: pathlib.Path | None = None
         self.proxy: str | None = None

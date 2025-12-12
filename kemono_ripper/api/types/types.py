@@ -230,6 +230,7 @@ class DownloadFlags(IntEnum):
 
 class DownloadStatus:
     def __init__(self) -> None:
+        self.expected_size: int = 0
         self.flags: DownloadFlags = DownloadFlags.NONE
         self.result: DownloadResult = DownloadResult.UNKNOWN
         self.state: State = State.NEW
@@ -244,7 +245,6 @@ class PostLinkDownloadInfo(NamedTuple):
     name: str
     url: URL
     path: pathlib.Path
-    expected_size: int
     status: DownloadStatus
 
     @property

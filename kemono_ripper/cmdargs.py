@@ -6,7 +6,6 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 #
 
-import os
 from argparse import ONE_OR_MORE, OPTIONAL, ZERO_OR_MORE, ArgumentParser, Namespace
 from collections.abc import Sequence
 
@@ -32,6 +31,7 @@ from .defs import (
     HELP_ARG_NOCOLORS,
     HELP_ARG_PATH,
     HELP_ARG_POST_FILE,
+    HELP_ARG_POST_FILE_LINES,
     HELP_ARG_POST_ID,
     HELP_ARG_POST_TAG,
     HELP_ARG_POST_URL,
@@ -223,18 +223,18 @@ def add_help(par: ArgumentParser, is_root: bool):
 
 def add_common_args(par: ArgumentParser) -> None:
     ke = par.add_argument_group(title='kemono options')
-    ke.add_argument('--api-address', default=API_ADDRESS_DEFAULT, help=HELP_ARG_API_ADDRESS, choices=APIAddress.__args__)
-    ke.add_argument('--service', default=SERVICE_DEFAULT, help=HELP_ARG_SERVICE, choices=APIService.__args__)
+    ke.add_argument('--api-address', default=None, help=HELP_ARG_API_ADDRESS, choices=APIAddress.__args__)
+    ke.add_argument('--service', default=None, help=HELP_ARG_SERVICE, choices=APIService.__args__)
     co = par.add_argument_group(title='connection options')
     co.add_argument('-x', '--proxy', metavar='#type://[u:p@]a.d.d.r:port', default=None, help=HELP_ARG_PROXY, type=valid_proxy)
-    co.add_argument('-t', '--timeout', metavar='#seconds', default=valid_timeout(''), help=HELP_ARG_TIMEOUT, type=valid_timeout)
-    co.add_argument('-r', '--retries', metavar='#number', default=CONNECT_RETRIES_BASE, help=HELP_ARG_RETRIES, type=positive_int)
+    co.add_argument('-t', '--timeout', metavar='#seconds', default=None, help=HELP_ARG_TIMEOUT, type=valid_timeout)
+    co.add_argument('-r', '--retries', metavar='#number', default=None, help=HELP_ARG_RETRIES, type=positive_int)
     co.add_argument('-h', '--header', metavar='#name=value', action=ACTION_APPEND, help=HELP_ARG_HEADER, type=valid_kwarg)
     co.add_argument('-c', '--cookie', metavar='#name=value', action=ACTION_APPEND, help=HELP_ARG_COOKIE, type=valid_kwarg)
     do = par.add_argument_group(title='download options')
-    do.add_argument('-o', '--path', default=valid_folder_path(os.path.curdir), help=HELP_ARG_PATH, type=valid_folder_path)
+    do.add_argument('-o', '--path', default=None, help=HELP_ARG_PATH, type=valid_folder_path)
     do.add_argument('-d', '--download-mode', default=DM_DEFAULT, help=HELP_ARG_DMMODE, choices=DOWNLOAD_MODES)
-    do.add_argument('-j', '--max-jobs', metavar='#number', default=MAX_JOBS_DEFAULT, help=HELP_ARG_MAXJOBS, type=valid_maxjobs)
+    do.add_argument('-j', '--max-jobs', metavar='#number', default=None, help=HELP_ARG_MAXJOBS, type=valid_maxjobs)
 
 
 def add_post_filtering_args(par: ArgumentParser, add_search_filters: bool, add_download_filters: bool) -> None:
@@ -252,8 +252,8 @@ def add_post_filtering_args(par: ArgumentParser, add_search_filters: bool, add_d
 
 def add_logging_args(par: ArgumentParser) -> None:
     lo = par.add_argument_group(title='logging options')
-    lo.add_argument('-v', '--log-level', default=log_level(LOGGING_DEFAULT.name.lower()), help=HELP_ARG_LOGGING, type=log_level)
-    lo.add_argument('-g', '--disable-log-colors', action=ACTION_STORE_TRUE, help=HELP_ARG_NOCOLORS)
+    lo.add_argument('-v', '--log-level', default=None, help=HELP_ARG_LOGGING, type=log_level)
+    lo.add_argument('-g', '--disable-log-colors', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_NOCOLORS)
 
 
 def parse_arglist(args: Sequence[str]) -> Namespace:
@@ -296,7 +296,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     pclg1 = pcl.add_argument_group(title='options')
     pclg1.add_argument('pattern', help=HELP_ARG_CREATOR_NAME_PATTERN, type=str)
-    pclg1.add_argument('--skip-cache', action=ACTION_STORE_TRUE, help=HELP_ARG_SKIP_CACHE)
+    pclg1.add_argument('--skip-cache', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_SKIP_CACHE)
     #  dump
     pcd = parsers[PARSER_TITLE_CREATOR_DUMP]
     pcd.usage = (
@@ -419,6 +419,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     pprfg1 = pprf.add_argument_group(title='options')
     pprfg1.add_argument('file', help=HELP_ARG_POST_FILE, type=valid_file_path)
+    pprfg1.add_argument('--lines', metavar='min-max', default=None, help=HELP_ARG_POST_FILE_LINES, type=valid_range)
     #  tag
     ppt = parsers[PARSER_TITLE_POST_TAGS]
     ppt.usage = (
@@ -443,6 +444,18 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
 
 
 def prepare_arglist(args: Sequence[str]) -> None:
+    default_values = {
+        'api_address': API_ADDRESS_DEFAULT,
+        'service': SERVICE_DEFAULT,
+        'skip_cache': False,
+        'max_jobs': MAX_JOBS_DEFAULT,
+        'path': valid_folder_path(''),
+        'log_level': log_level(LOGGING_DEFAULT.name.lower()),
+        'disable_log_colors': False,
+        'timeout': valid_timeout(''),
+        'retries': CONNECT_RETRIES_BASE,
+    }
+
     parsed = parse_arglist(args)
     for pp in vars(parsed):
         param = Config.NAMESPACE_VARS_REMAP.get(pp, pp)
@@ -450,9 +463,13 @@ def prepare_arglist(args: Sequence[str]) -> None:
         parser_default = getattr(parsed, PARSER_PARAM_PARSER_TYPE).get_default(pp)
         if param in vars(Config):
             cvalue = getattr(Config, param)
-            if not cvalue or (parsed_value and parsed_value != parser_default):
+            force = cvalue is not None and parsed_value is not None and pp in default_values
+            if not cvalue or (parsed_value and (force or parsed_value != default_values.get(pp, parser_default))):
                 svalue = parsed_value if cvalue is None else (parsed_value or cvalue)
-                setattr(Config, param, svalue)
+                if isinstance(svalue, list) and isinstance(cvalue, list):
+                    cvalue.extend(svalue)
+                else:
+                    setattr(Config, param, svalue)
         elif param not in (PARSER_PARAM_PARSER_TYPE,):
             Log.error(f'Argument list param {param} was not consumed!')
 
