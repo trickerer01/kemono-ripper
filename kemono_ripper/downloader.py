@@ -38,7 +38,7 @@ from .api import (
     State,
 )
 from .config import Config, ExternalURLHandlerConfig, MegaConfig
-from .defs import FILE_NAME_FULL_MAX_LEN, POST_TAGS_PER_POST_NAME_DEFAULT, SITE_MEGA, UTF8
+from .defs import FILE_NAME_FULL_MAX_LEN, POST_TAGS_PER_POST_INFO_DEFAULT, SITE_MEGA, UTF8, PathURLJSONEncoder
 from .filters import (
     LSPostFilter,
     PostDateFilter,
@@ -243,13 +243,11 @@ class KemonoDownloader:
 
         post.status.state = State.DOWNLOADING
 
-        if post.tags:
-            file_name = POST_TAGS_PER_POST_NAME_DEFAULT
-            Log.trace(f'[{post.creator_id}:{post.post_id}] Saving tags to {post.local_path}/{file_name}')
-            post.dest.mkdir(parents=True, exist_ok=True)
-            with open(post.dest / file_name, 'wt', encoding=UTF8, newline='\n', errors='replace') as outfile_tags:
-                json.dump(post.tags, outfile_tags, ensure_ascii=False, indent=Config.indent)
-                outfile_tags.write('\n')
+        Log.trace(f'[{post.creator_id}:{post.post_id}] Saving info to {post.local_path}/{POST_TAGS_PER_POST_INFO_DEFAULT}')
+        post.dest.mkdir(parents=True, exist_ok=True)
+        with open(post.dest / POST_TAGS_PER_POST_INFO_DEFAULT, 'wt', encoding=UTF8, newline='\n', errors='replace') as outfile_tags:
+            json.dump(post, outfile_tags, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
+            outfile_tags.write('\n')
 
         tasks = [download_post_link_wrapper(plink) for _, plink in post.links.items()]
         _ = await gather(*tasks)

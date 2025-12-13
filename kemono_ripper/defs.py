@@ -7,8 +7,21 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 
 import datetime
+import json
+import pathlib
 from enum import Enum, IntEnum
 from typing import Literal, NamedTuple, TypeAlias
+
+from yarl import URL
+
+
+class PathURLJSONEncoder(json.JSONEncoder):
+    def default(self, o: pathlib.Path | URL) -> str:
+        if isinstance(o, pathlib.PurePath):
+            return o.as_posix()
+        elif isinstance(o, URL):
+            return str(o)
+
 
 MIN_PYTHON_VERSION = (3, 10)
 MIN_PYTHON_VERSION_STR = f'{MIN_PYTHON_VERSION[0]:d}.{MIN_PYTHON_VERSION[1]:d}'
@@ -16,7 +29,7 @@ MIN_PYTHON_VERSION_STR = f'{MIN_PYTHON_VERSION[0]:d}.{MIN_PYTHON_VERSION[1]:d}'
 CREATORS_NAME_DEFAULT = 'creators.json'
 POST_TAGS_NAME_DEFAULT = 'post_tags.json'
 CONFIG_NAME_DEFAULT = 'setting.json'
-POST_TAGS_PER_POST_NAME_DEFAULT = 'tags.txt'
+POST_TAGS_PER_POST_INFO_DEFAULT = '!info.json'
 FILE_NAME_FULL_MAX_LEN = 220
 
 SITE_MEGA = 'mega.nz'
