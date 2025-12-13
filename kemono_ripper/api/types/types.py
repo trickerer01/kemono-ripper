@@ -134,6 +134,15 @@ class ScannedPostPreview(TypedDict):
     description: str  # 'Watch and share Asd das ddd ...'
 
 
+class ScannedPostVideo(TypedDict):
+    server: str  # same as ScannedPostAttachment
+    name: str  # same as ScannedPostAttachment
+    extension: str  # same as ScannedPostAttachment
+    name_extension: str  # same as ScannedPostAttachment
+    index: int
+    path: str  # same as ScannedPostAttachment
+
+
 class ScannedPostRevision(ScannedPostPost):
     pass
 
@@ -147,7 +156,7 @@ class ScannedPost(TypedDict):
     post: ScannedPostPost
     attachments: list[ScannedPostAttachment]
     previews: list[ScannedPostPreview]
-    videos: list[dict]  # TODO: validate
+    videos: list[ScannedPostVideo]
     props: ScannedPostProps
 
 

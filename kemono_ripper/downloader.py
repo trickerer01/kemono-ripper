@@ -453,6 +453,11 @@ class KemonoDownloader:
                 furl = URL(file['path'])
                 links_dict.update({furl: file['name']})
 
+            if videos := spost['videos']:
+                for video in videos:
+                    vurl = URL(video['path'])
+                    links_dict.update({vurl: video['name']})
+
             post_tags = spost['post']['tags']
             post_dest_base = get_path_formatter(Config.path_format).format(post)
             post_dest = Config.dest_base.joinpath(post_dest_base)
@@ -468,9 +473,9 @@ class KemonoDownloader:
 
                 name_append = name
                 lpath = post_dest.joinpath(sanitize_path(next_file_name(name_append)))
-                while (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN and len(name_append) > 12:
+                while (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN and len(name_append) > 15:
                     Log.warn(f'[{user}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}...')
-                    name_append = name_append[:len(name_append) // 2]
+                    name_append = f'{name_append[:len(name_append) // 2]}{link_base.suffix}'
                     lpath = post_dest.joinpath(sanitize_path(next_file_name(name_append)))
                 if (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN:
                     raise OSError(f'[{user}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}!')
