@@ -460,9 +460,12 @@ def prepare_arglist(args: Sequence[str]) -> None:
     }
 
     parsed = parse_arglist(args)
+    config_create = ' '.join(getattr(parsed, _, '') for _ in ('subcommand_1', 'subcommand_2')) == 'config create'
     for pp in vars(parsed):
         param = Config.NAMESPACE_VARS_REMAP.get(pp, pp)
         parsed_value = getattr(parsed, pp)
+        if config_create:
+            parsed_value = parsed_value or default_values.get(pp)
         parser_default = getattr(parsed, PARSER_PARAM_PARSER_TYPE).get_default(pp)
         if param in vars(Config):
             cvalue = getattr(Config, param)
