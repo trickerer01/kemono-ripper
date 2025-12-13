@@ -156,7 +156,7 @@ class ScannedPost(TypedDict):
     post: ScannedPostPost
     attachments: list[ScannedPostAttachment]
     previews: list[ScannedPostPreview]
-    videos: list[ScannedPostVideo]
+    videos: list[ScannedPostVideo]  # optional
     props: ScannedPostProps
 
 
