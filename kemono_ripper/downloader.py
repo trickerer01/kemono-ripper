@@ -431,11 +431,13 @@ class KemonoDownloader:
                         url = URL(bs_tag[tag_name])
                         url_purged = url.with_query('')
                         if url_purged not in links_dict:
-                            if self.is_link_supported(url_purged):
+                            if not url.is_absolute():
+                                link_name = f'unnamed_{link_idx:02d}{url.suffix}' if url == url_purged else self.extract_link_name(url)
+                            elif self.is_link_supported(url_purged):
                                 link_name = self.extract_link_name(url)
                             else:
                                 link_idx += 1
-                                link_name = f'unk_{link_idx:02d}'
+                                link_name = f'unnamed_{link_idx:02d}'
                                 if key_idx < len(keys_mega) and url.host == SITE_MEGA and '#' not in url_purged.path:
                                     key = keys_mega[key_idx]
                                     url_purged = url_purged.with_fragment(key[1 if '#' in key else 0:])
