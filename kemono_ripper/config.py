@@ -16,6 +16,7 @@ from .defs import CONFIG_NAME_DEFAULT, CONNECT_TIMEOUT_SOCKET_READ, SITE_MEGA, D
 
 if False is True:  # for hinting only
     from .api import APIAddress, APIService, PostPageScanResult  # noqa: I001
+    from .formatter import PathFormatType
 
 __all__ = ('Config', 'ExternalURLHandlerConfig', 'MegaConfig')
 
@@ -30,6 +31,7 @@ class ConfigJSON(TypedDict):
     skip_cache: bool
     max_jobs: int
     dest_base: str
+    path_format: str
     proxy: str
     logging_flags: int
     disable_log_colors: bool
@@ -89,6 +91,7 @@ class BaseConfig:
         self.filter_extensions: list[str] | None = None
         self.src_file: pathlib.Path | None = None
         self.max_jobs: int | None = None
+        self.path_format: PathFormatType | None = None
         # no args
         self.per_website_config: dict[SupportedExternalWebsite, DownloaderConfig] = PER_WEBSITE_CONFIG_DEFAULT.copy()
         # common
@@ -118,6 +121,7 @@ class BaseConfig:
             skip_cache=self.skip_cache,
             max_jobs=self.max_jobs,
             dest_base=self.dest_base.as_posix(),
+            path_format=self.path_format,
             proxy=self.proxy,
             logging_flags=self.logging_flags,
             disable_log_colors=self.disable_log_colors,

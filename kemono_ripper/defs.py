@@ -8,7 +8,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 import datetime
 from enum import Enum, IntEnum
-from typing import NamedTuple
+from typing import Literal, NamedTuple, TypeAlias
 
 MIN_PYTHON_VERSION = (3, 10)
 MIN_PYTHON_VERSION_STR = f'{MIN_PYTHON_VERSION[0]:d}.{MIN_PYTHON_VERSION[1]:d}'
@@ -17,6 +17,7 @@ CREATORS_NAME_DEFAULT = 'creators.json'
 POST_TAGS_NAME_DEFAULT = 'post_tags.json'
 CONFIG_NAME_DEFAULT = 'setting.json'
 POST_TAGS_PER_POST_NAME_DEFAULT = 'tags.txt'
+FILE_NAME_FULL_MAX_LEN = 220
 
 SITE_MEGA = 'mega.nz'
 
@@ -32,6 +33,13 @@ SLASH = '/'
 UTF8 = 'utf-8'
 JSON_INDENT_DEFAULT = 4
 FMT_DATE = '%Y-%m-%d'
+
+PathFormatType: TypeAlias = Literal[
+    '{creator_id}/{post_id}',
+    '{creator_id} - {post_id}',
+    '{creator_id} - {post_title} ({post_id})',
+    '{creator_id} - {post_id} - {post_title}',
+]
 
 
 class SupportedExternalWebsite(str, Enum):
@@ -70,6 +78,7 @@ ACTION_APPEND = 'append'
 
 HELP_ARG_VERSION = 'Show program\'s version number and exit'
 HELP_ARG_PATH = 'Download destination. Default is current folder'
+HELP_ARG_PATH_FORMAT = f'Saved post subfolder name format. Possible formats: [{",".join(PathFormatType.__args__)}]'
 HELP_ARG_PROXY = 'Proxy to use, supports basic authentication'
 HELP_ARG_DMMODE = '[Debug] Download (file creation) mode'
 HELP_ARG_LOGGING = (

@@ -30,6 +30,7 @@ from .defs import (
     HELP_ARG_MAXJOBS,
     HELP_ARG_NOCOLORS,
     HELP_ARG_PATH,
+    HELP_ARG_PATH_FORMAT,
     HELP_ARG_POST_FILE,
     HELP_ARG_POST_FILE_LINES,
     HELP_ARG_POST_ID,
@@ -47,6 +48,7 @@ from .defs import (
     JSON_INDENT_DEFAULT,
     LOGGING_FLAGS_DEFAULT,
     MAX_JOBS_DEFAULT,
+    PathFormatType,
 )
 from .logger import Log
 from .validators import (
@@ -60,6 +62,7 @@ from .validators import (
     valid_indent,
     valid_kwarg,
     valid_maxjobs,
+    valid_path_format,
     valid_pattern,
     valid_post_url,
     valid_proxy,
@@ -234,6 +237,7 @@ def add_common_args(par: ArgumentParser) -> None:
     co.add_argument('-c', '--cookie', metavar='#name=value', action=ACTION_APPEND, help=HELP_ARG_COOKIE, type=valid_kwarg)
     do = par.add_argument_group(title='download options')
     do.add_argument('-o', '--path', default=None, help=HELP_ARG_PATH, type=valid_folder_path)
+    do.add_argument('-f', '--path-format', default=None, help=HELP_ARG_PATH_FORMAT, type=valid_path_format)
     do.add_argument('-d', '--download-mode', default=DM_DEFAULT, help=HELP_ARG_DMMODE, choices=DOWNLOAD_MODES)
     do.add_argument('-j', '--max-jobs', metavar='#number', default=None, help=HELP_ARG_MAXJOBS, type=valid_maxjobs)
 
@@ -453,6 +457,7 @@ def prepare_arglist(args: Sequence[str]) -> None:
         'skip_cache': False,
         'max_jobs': MAX_JOBS_DEFAULT,
         'path': valid_folder_path(''),
+        'path_format': valid_path_format(next(iter(PathFormatType.__args__))),
         'log_level': log_level(LOGGING_DEFAULT.name.lower()),
         'disable_log_colors': False,
         'timeout': valid_timeout(''),

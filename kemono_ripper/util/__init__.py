@@ -1,4 +1,4 @@
-from .filesystem import extract_ext, normalize_filename, normalize_path, sanitize_filename
+from .filesystem import extract_ext, normalize_filename, normalize_path, sanitize_path
 from .strings import HTTP_PREFIX, HTTPS_PREFIX, build_regex_from_pattern, compose_link_v2, ensure_scheme_https
 from .time import (
     calculate_eta,
@@ -31,6 +31,6 @@ __all__ = (
     'get_time_seconds',
     'normalize_filename',
     'normalize_path',
-    'sanitize_filename',
+    'sanitize_path',
     'time_now_fmt',
 )

@@ -38,7 +38,7 @@ from .api import (
     State,
 )
 from .config import Config, ExternalURLHandlerConfig, MegaConfig
-from .defs import POST_TAGS_PER_POST_NAME_DEFAULT, SITE_MEGA, UTF8
+from .defs import FILE_NAME_FULL_MAX_LEN, POST_TAGS_PER_POST_NAME_DEFAULT, SITE_MEGA, UTF8
 from .filters import (
     LSPostFilter,
     PostDateFilter,
@@ -48,8 +48,9 @@ from .filters import (
     any_filter_matching_ls_post,
     any_filter_matching_post_link,
 )
+from .formatter import get_path_formatter
 from .logger import Log
-from .util import sanitize_filename
+from .util import sanitize_path
 
 try:
     import mega_download as handler_mega
@@ -244,7 +245,7 @@ class KemonoDownloader:
 
         if post.tags:
             file_name = POST_TAGS_PER_POST_NAME_DEFAULT
-            Log.trace(f'[{post.creator_id}:{post.post_id}] Saving tags to {post.dest.with_name(file_name).as_posix()}')
+            Log.trace(f'[{post.creator_id}:{post.post_id}] Saving tags to {post.local_path}/{file_name}')
             post.dest.mkdir(parents=True, exist_ok=True)
             with open(post.dest / file_name, 'wt', encoding=UTF8, newline='\n', errors='replace') as outfile_tags:
                 json.dump(post.tags, outfile_tags, ensure_ascii=False, indent=Config.indent)
@@ -432,7 +433,7 @@ class KemonoDownloader:
                         url_purged = url.with_query('')
                         if url_purged not in links_dict:
                             if not url.is_absolute():
-                                link_name = f'unnamed_{link_idx:02d}{url.suffix}' if url == url_purged else self.extract_link_name(url)
+                                link_name = f'unnamed_{link_idx:02d}' if url == url_purged else self.extract_link_name(url)
                             elif self.is_link_supported(url_purged):
                                 link_name = self.extract_link_name(url)
                             else:
@@ -449,11 +450,11 @@ class KemonoDownloader:
                 links_dict.update({furl: file['name']})
 
             post_tags = spost['post']['tags']
-            post_dest = Config.dest_base / user / pid
+            post_dest_base = get_path_formatter(Config.path_format).format(post)
+            post_dest = Config.dest_base.joinpath(post_dest_base)
 
             links: dict[str, PostLinkDownloadInfo] = {}
-            links_dict_r: dict[str, URL] = {v: k for k, v in links_dict.items()}
-            for name, link_base in links_dict_r.items():
+            for link_base, name in links_dict.items():
                 if link_base.host in APIAddress.__args__ or not link_base.is_absolute():
                     link_full = next_api_address().with_path(f'data{link_base.path}')
                 else:
@@ -461,7 +462,15 @@ class KemonoDownloader:
                 if not pathlib.Path(name).suffix:
                     name = f'{name}{link_base.suffix}'
 
-                lpath = post_dest / sanitize_filename(next_file_name(name))
+                name_append = name
+                lpath = post_dest.joinpath(sanitize_path(next_file_name(name_append)))
+                while (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN and len(name_append) > 12:
+                    Log.warn(f'[{user}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}...')
+                    name_append = name_append[:len(name_append) // 2]
+                    lpath = post_dest.joinpath(sanitize_path(next_file_name(name_append)))
+                if (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN:
+                    raise OSError(f'[{user}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}!')
+
                 plink = PostLinkDownloadInfo(name, link_full, lpath, DownloadStatus())
 
                 if plfilter := any_filter_matching_post_link(plink, self._post_link_filters):

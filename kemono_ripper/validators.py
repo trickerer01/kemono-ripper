@@ -24,6 +24,7 @@ from .defs import (
     MAX_JOBS_MAX,
     DateRange,
     NumRange,
+    PathFormatType,
 )
 from .logger import Log
 from .util import build_regex_from_pattern
@@ -78,6 +79,14 @@ def valid_folder_path(pathstr: str) -> pathlib.Path:
 
 def valid_file_path(pathstr: str) -> pathlib.Path:
     return valid_path(pathstr, is_file=True)
+
+
+def valid_path_format(format_str: str) -> str:
+    try:
+        assert format_str in PathFormatType.__args__
+        return format_str
+    except Exception:
+        raise ArgumentError
 
 
 def valid_proxy(prox: str) -> str:

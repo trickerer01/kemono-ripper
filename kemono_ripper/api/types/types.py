@@ -255,9 +255,24 @@ class PostLinkDownloadInfo(NamedTuple):
     path: pathlib.Path
     status: DownloadStatus
 
-    @property
-    def local_path(self, levels: Literal[2, 3, 4] = 4) -> str:
+    def get_local_path(self, levels: Literal[2, 3, 4]) -> str:
         return '/'.join(('...', *self.path.parts[-levels:]))
+
+    @property
+    def local_path2(self) -> str:
+        return self.get_local_path(2)
+
+    @property
+    def local_path3(self) -> str:
+        return self.get_local_path(3)
+
+    @property
+    def local_path4(self) -> str:
+        return self.get_local_path(4)
+
+    @property
+    def local_path(self) -> str:
+        return self.local_path3
 
 
 class PostDownloadInfo(NamedTuple):
@@ -270,6 +285,21 @@ class PostDownloadInfo(NamedTuple):
     links: dict[str, PostLinkDownloadInfo]
     completed: list[PostLinkDownloadInfo]
     status: DownloadStatus
+
+    def get_local_path(self, levels: Literal[2, 3]) -> str:
+        return '/'.join(('...', *self.dest.parts[-levels:]))
+
+    @property
+    def local_path2(self) -> str:
+        return self.get_local_path(2)
+
+    @property
+    def local_path3(self) -> str:
+        return self.get_local_path(3)
+
+    @property
+    def local_path(self) -> str:
+        return self.local_path2
 
     def __hash__(self) -> int:
         return hash((self.creator_id, self.post_id))

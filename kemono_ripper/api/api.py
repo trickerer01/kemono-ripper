@@ -162,8 +162,9 @@ class Kemono:
         raise ConnectionError
 
     async def _download(self, action: APIDownloadAction) -> KemonoErrorCodes:
+        local_path = action.post_link.local_path
         if ffilter := any_filter_matching(action.post, action.post_link, self._filters):
-            Log.info(f'File {action.post_link.local_path} was filtered out by {ffilter!s}. Skipped!')
+            Log.info(f'File {local_path} was filtered out by {ffilter!s}. Skipped!')
             return KemonoErrorCodes.ESUCCESS
 
         if self._download_mode != DownloadMode.FULL:
@@ -186,7 +187,7 @@ class Kemono:
                     content_range_s = str(r.headers.get('Content-Range', '/')).split('/', 1)
                     content_range = int(content_range_s[1]) if len(content_range_s) > 1 and content_range_s[1].isnumeric() else 1
                     if (content_len == 0 or r.status == 416) and file_size >= content_range:
-                        Log.warn(f'{action.post_link.local_path}) is already completed, size: {file_size:d} ({file_size / Mem.MB:.2f} Mb)')
+                        Log.warn(f'{local_path}) is already completed, size: {file_size:d} ({file_size / Mem.MB:.2f} Mb)')
                         action.post_link.status.expected_size = file_size
                         return KemonoErrorCodes.EEXISTS
                     if r.status == 404:
@@ -197,16 +198,18 @@ class Kemono:
                     action.post_link.status.expected_size = file_size + content_len
                     assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url().human_repr()}! Retrying...'
                     action.post_link.path.parent.mkdir(parents=True, exist_ok=True)
+                    start_str = f' <continuing at {file_size:d}>' if file_size else ''
+                    total_str = f'{content_len / Mem.MB:.2f} / {action.post_link.status.expected_size / Mem.MB:.2f}' if file_size else ''
+                    Log.info(f'[{self.api_address}] Saving{start_str} {action.post_link.name} {total_str} Mb to {local_path}')
                     async with async_open(action.post_link.path, 'ab') as output_file:
                         async for chunk in r.content.iter_chunked(128 * Mem.KB):
                             await output_file.write(chunk)
                             bytes_written += len(chunk)
                 return KemonoErrorCodes.ESUCCESS
             except Exception as e:
-                Log.error(f'{action.post_link.local_path}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
+                Log.error(f'{local_path}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
                 if (r is None or r.status != 403) and not isinstance(e, (ClientPayloadError, ClientConnectorError)):
                     try_num += 1
-                    local_path = '/'.join(action.post_link.path.parts[-3:])
                     Log.error(f'{local_path}: error #{try_num:d}...')
                 if r is not None and not r.closed:
                     r.close()
@@ -214,7 +217,7 @@ class Kemono:
                     await sleep(random.uniform(*CONNECT_RETRY_DELAY))
                 continue
 
-        Log.error(f'Unable to connect. Aborting {action.post_link.local_path}')
+        Log.error(f'Unable to connect. Aborting {local_path}')
         return KemonoErrorCodes.ECONNECT
 
     async def _scan_post(self, link: PostPageScanResult) -> ScannedPost:

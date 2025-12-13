@@ -21,7 +21,7 @@ def normalize_path(basepath: str, append_slash=True) -> str:
     return normalized_path
 
 
-def sanitize_filename(filename_base: str) -> str:
+def sanitize_path(path_base: str) -> str:
     def char_replace(char: str) -> str:
         if char in '\n\r\t"*:<>?|/\\':
             return {'/': '\u29f8', '\\': '\u29f9', '\n': '', '\r': '', '\t': ''}.get(char, chr(ord(char) + 0xfee0))
@@ -29,15 +29,15 @@ def sanitize_filename(filename_base: str) -> str:
             char = ''
         return char
 
-    filename = ''.join(map(char_replace, filename_base)).replace('\0', '_')
-    while '__' in filename:
-        filename = filename.replace('__', '_')
-    return filename.strip('_')
+    sane_path = ''.join(map(char_replace, path_base)).replace('\0', '_')
+    while '__' in sane_path:
+        sane_path = sane_path.replace('__', '_')
+    return sane_path.strip('_')
 
 
 def normalize_filename(filename: str, base_path: str) -> str:
     """Returns full path to a file, normalizing base path and removing disallowed symbols from file name"""
-    return f'{normalize_path(base_path)}{sanitize_filename(filename)}'
+    return f'{normalize_path(base_path)}{sanitize_path(filename)}'
 
 
 def extract_ext(href: str) -> str:
