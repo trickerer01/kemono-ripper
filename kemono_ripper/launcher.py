@@ -204,7 +204,9 @@ async def post_scan_url(kemono: Kemono, *, links: list[PostPageScanResult] | Non
 
 async def post_scan_file(kemono: Kemono, *, download=False) -> None:
     with open(Config.src_file, 'rt', encoding=UTF8) as infile_posts:
-        Log.info(f'Parsing \'.../{Config.src_file.relative_to(Config.src_file.parent.parent).as_posix()}\'...')
+        lines_str = (
+            f' lines {int(Config.filter_file_lines.min):d}-{int(Config.filter_file_lines.max):d}' if Config.filter_file_lines else '')
+        Log.info(f'Parsing \'.../{Config.src_file.relative_to(Config.src_file.parent.parent).as_posix()}\'{lines_str}...')
         post_links = _parse_posts_file(kemono, infile_posts)
     return await post_scan_url(kemono, links=post_links, download=download)
 
