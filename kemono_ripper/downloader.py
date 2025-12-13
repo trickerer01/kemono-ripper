@@ -392,8 +392,14 @@ class KemonoDownloader:
 
             if previews := spost['previews']:
                 for preview in previews:
-                    purl = URL(preview['path'])
-                    links_dict.update({purl: preview['name']})
+                    if preview['type'] == 'thumbnail':
+                        purl = URL(preview['path'])
+                        links_dict.update({purl: preview['name']})
+                    elif preview['type'] == 'embed':
+                        purl = URL(preview['url'])
+                        links_dict.update({purl: preview['subject']})
+                    else:
+                        Log.warn(f'[{user}:{pid}] {title}: unsupported preview type \'{preview["type"]}\'!')
 
             if attachments := post['attachments']:
                 for attachment in attachments:

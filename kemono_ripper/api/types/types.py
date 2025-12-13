@@ -123,10 +123,15 @@ class ScannedPostAttachment(TypedDict):
 
 
 class ScannedPostPreview(TypedDict):
-    type: str  # 'thumbnail'
+    type: Literal['thumbnail', 'embed']
+    # thumbnail
     server: str  # 'https://n2.k...o.cr'
     name: str  # 'Wasd.png'
     path: str  # '/2c/41/2c41ce3128d182916e2922ea2c96148ddf2e97d5.png'
+    # embed
+    url: str  # 'https://gfy...t.com/fwejiopjhpoqwjhojeo'
+    subject: str  # 'Asd das ddd'
+    description: str  # 'Watch and share Asd das ddd ...'
 
 
 class ScannedPostRevision(ScannedPostPost):
