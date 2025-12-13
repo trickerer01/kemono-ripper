@@ -199,8 +199,9 @@ class Kemono:
                     assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url().human_repr()}! Retrying...'
                     action.post_link.path.parent.mkdir(parents=True, exist_ok=True)
                     start_str = f' <continuing at {file_size:d}>' if file_size else ''
-                    total_str = f'{content_len / Mem.MB:.2f} / {action.post_link.status.expected_size / Mem.MB:.2f}' if file_size else ''
-                    Log.info(f'[{self.api_address}] Saving{start_str} {action.post_link.name} {total_str} Mb to {local_path}')
+                    total_str = f' / {action.post_link.status.expected_size / Mem.MB:.2f}' if file_size else ''
+                    Log.info(f'[{self.api_address}] Saving{start_str} {action.post_link.name}'
+                             f' {content_len / Mem.MB:.2f}{total_str} Mb to {local_path}')
                     async with async_open(action.post_link.path, 'ab') as output_file:
                         async for chunk in r.content.iter_chunked(128 * Mem.KB):
                             await output_file.write(chunk)
