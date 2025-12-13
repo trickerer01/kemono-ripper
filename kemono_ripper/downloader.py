@@ -8,6 +8,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 from __future__ import annotations
 
+import json
 import pathlib
 import random
 import re
@@ -37,7 +38,7 @@ from .api import (
     State,
 )
 from .config import Config, ExternalURLHandlerConfig, MegaConfig
-from .defs import SITE_MEGA
+from .defs import POST_TAGS_PER_POST_NAME_DEFAULT, SITE_MEGA, UTF8
 from .filters import (
     LSPostFilter,
     PostDateFilter,
@@ -180,13 +181,13 @@ class KemonoDownloader:
     async def _at_post_link_start(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
         async with self._active_downloads_lock:
             self._downloads_active[post].append(plink)
-        Log.trace(f'[queue] [{post.creator_id:d}:{post.post_id}] \'{plink.name}\' added to active')
+        Log.trace(f'[queue] [{post.creator_id}:{post.post_id}] \'{plink.name}\' added to active')
 
     async def _at_post_link_finish(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
         async with self._active_downloads_lock:
             if plink in self._downloads_active[post]:
                 self._downloads_active[post].remove(plink)
-                Log.trace(f'[queue] [{post.creator_id:d}:{post.post_id}] \'{plink.name}\' removed from active')
+                Log.trace(f'[queue] [{post.creator_id}:{post.post_id}] \'{plink.name}\' removed from active')
             post.completed.append(plink)
             result = plink.status.result
             if result == DownloadResult.FAIL_ALREADY_EXISTS:
@@ -210,7 +211,7 @@ class KemonoDownloader:
         Log.info(f'Processing post [{post.creator_id}:{post.post_id}] \'{post.original_post["post"]["title"]}\'...')
 
     async def _at_post_finish(self, post: PostDownloadInfo) -> None:
-        pid = f'[{post.creator_id:d}:{post.post_id}] \'{post.original_post["post"]["title"]}\''
+        pid = f'[{post.creator_id}:{post.post_id}] \'{post.original_post["post"]["title"]}\''
         async with self._active_downloads_lock:
             assert post in self._downloads_active
             results = [plink.status.result for _, plink in post.links.items()]
@@ -240,6 +241,15 @@ class KemonoDownloader:
                 return await self._download_post_link(post, plink)
 
         post.status.state = State.DOWNLOADING
+
+        if post.tags:
+            file_name = POST_TAGS_PER_POST_NAME_DEFAULT
+            Log.trace(f'[{post.creator_id}:{post.post_id}] Saving tags to {post.dest.with_name(file_name).as_posix()}')
+            post.dest.mkdir(parents=True, exist_ok=True)
+            with open(post.dest / file_name, 'wt', encoding=UTF8, newline='\n', errors='replace') as outfile_tags:
+                json.dump(post.tags, outfile_tags, ensure_ascii=False, indent=Config.indent)
+                outfile_tags.write('\n')
+
         tasks = [download_post_link_wrapper(plink) for _, plink in post.links.items()]
         _ = await gather(*tasks)
 
@@ -328,7 +338,7 @@ class KemonoDownloader:
         if len(self._writes_active) > 0:
             Log.fatal(f'active writes count is still at {len(self._writes_active):d} != 0!')
         if len(self._failed_items) > 0:
-            fitems = ['\n'.join([f'{post.original_post["post"]["service"]}:{post.creator_id:d}:{post.post_id}'
+            fitems = ['\n'.join([f'{post.original_post["post"]["service"]}:{post.creator_id}:{post.post_id}'
                                  f' {plink.url.human_repr()} => {plink.local_path}'
                                  for plink in plinks]) for post, plinks in self._failed_items.items()]
             Log.fatal(f'\nFailed items:\n{newline.join(fitems)}')
@@ -436,6 +446,9 @@ class KemonoDownloader:
                 furl = URL(file['path'])
                 links_dict.update({furl: file['name']})
 
+            post_tags = spost['post']['tags']
+            post_dest = Config.dest_base / user / pid
+
             links: dict[str, PostLinkDownloadInfo] = {}
             links_dict_r: dict[str, URL] = {v: k for k, v in links_dict.items()}
             for name, link_base in links_dict_r.items():
@@ -444,7 +457,7 @@ class KemonoDownloader:
                 else:
                     link_full = link_base
 
-                lpath = Config.dest_base / user / pid / sanitize_filename(next_file_name(name))
+                lpath = post_dest / sanitize_filename(next_file_name(name))
                 plink = PostLinkDownloadInfo(name, link_full, lpath, DownloadStatus())
 
                 if plfilter := any_filter_matching_post_link(plink, self._post_link_filters):
@@ -453,7 +466,7 @@ class KemonoDownloader:
 
                 links[name] = plink
 
-            self._post_info[pid] = PostDownloadInfo(pid, int(user), user, spost, links, [], DownloadStatus())
+            self._post_info[pid] = PostDownloadInfo(pid, user, user, post_tags, post_dest, spost, links, [], DownloadStatus())
 
             links_str = '\n'.join(f' {pldi.url.human_repr()} => {pldi.local_path}' for title, pldi in links.items())
             post_strings.append(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links:\n{links_str}')

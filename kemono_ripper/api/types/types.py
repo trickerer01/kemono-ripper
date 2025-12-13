@@ -262,8 +262,10 @@ class PostLinkDownloadInfo(NamedTuple):
 
 class PostDownloadInfo(NamedTuple):
     post_id: str
-    creator_id: int
+    creator_id: str
     creator_name: str
+    tags: list[str]
+    dest: pathlib.Path
     original_post: ScannedPost
     links: dict[str, PostLinkDownloadInfo]
     completed: list[PostLinkDownloadInfo]

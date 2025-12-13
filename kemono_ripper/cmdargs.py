@@ -257,6 +257,11 @@ def add_logging_args(par: ArgumentParser) -> None:
     lo.add_argument('-g', '--disable-log-colors', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_NOCOLORS)
 
 
+def add_json_args(par: ArgumentParser) -> None:
+    ind = par.add_argument_group(title='JSON options')
+    ind.add_argument('-i', '--indent', metavar='1..8', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
+
+
 def parse_arglist(args: Sequence[str]) -> Namespace:
     parsers = create_parsers()
 
@@ -277,8 +282,6 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     #  create
     pcfc = parsers[PARSER_TITLE_CONFIG_CREATE]
-    pcfcg1 = pcfc.add_argument_group(title='options')
-    pcfcg1.add_argument('-i', '--indent', metavar='1..8', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
     #  modify
     pcfm = parsers[PARSER_TITLE_CONFIG_MODIFY]
 
@@ -305,7 +308,6 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
         f' #[options...]'
     )
     pcdg1 = pcd.add_argument_group(title='options')
-    pcdg1.add_argument('-i', '--indent', metavar='1..8', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
     pcdg1.add_argument('--prune', action=ACTION_STORE_TRUE, help=HELP_ARG_PRUNE)
     #  rip
     pcr = parsers[PARSER_TITLE_CREATOR_RIP]
@@ -434,9 +436,9 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
         f' #[options...] '
     )
     pptdg1 = pptd.add_argument_group(title='options')
-    pptdg1.add_argument('-i', '--indent', metavar='1..8', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
     pptdg1.add_argument('--prune', action=ACTION_STORE_TRUE, help=HELP_ARG_PRUNE)
 
+    [add_json_args(_) for _ in (pcd, pcr, ppri, ppru, pprf, pptd, pcfc)]
     [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
     [add_post_filtering_args(_, _ in (ppse, ppl, pcr), _ not in (ppse, ppl)) for _ in (ppl, pcr, ppse, ppri, ppru, pprf)]
     [add_logging_args(_) for _ in parsers.values()]
