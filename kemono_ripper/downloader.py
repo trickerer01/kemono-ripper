@@ -410,7 +410,7 @@ class KemonoDownloader:
                         links_dict.update({purl: preview['name']})
                     elif preview['type'] == 'embed':
                         purl = URL(preview['url'])
-                        links_dict.update({purl: preview['subject']})
+                        links_dict.update({purl: preview['subject'] or 'Untitled'})
                     else:
                         Log.warn(f'[{user}:{pid}] {title}: unsupported preview type \'{preview["type"]}\'!')
 
