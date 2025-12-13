@@ -381,6 +381,10 @@ class KemonoDownloader:
 
     def _gather_post_download_info(self, scanned_posts: Iterable[ScannedPost]) -> int:
         def next_file_name(name_base: str) -> str:
+            next_file_name.last_post_idx = getattr(next_file_name, 'last_post_idx', 0)
+            if next_file_name.last_post_idx != spost_idx:
+                next_file_name.last_post_idx = spost_idx
+                next_file_name.name_idx = 0
             next_file_name.name_idx = getattr(next_file_name, 'name_idx', 0) + 1
             return f'{next_file_name.name_idx:02d}_{name_base}'
 
@@ -389,7 +393,7 @@ class KemonoDownloader:
             return URL(f'https://n{next_api_address.name_idx:d}.{self._kemono.api_address}')
 
         post_strings: list[str] = []
-        for spost in scanned_posts:
+        for spost_idx, spost in enumerate(scanned_posts):  # noqa B007  # stupid ruff
             post: ScannedPostPost = spost['post']
             pid = post['id']
             user = post['user']
