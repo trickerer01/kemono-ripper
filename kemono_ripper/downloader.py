@@ -458,6 +458,8 @@ class KemonoDownloader:
                     link_full = next_api_address().with_path(f'data{link_base.path}')
                 else:
                     link_full = link_base
+                if not pathlib.Path(name).suffix:
+                    name = f'{name}{link_base.suffix}'
 
                 lpath = post_dest / sanitize_filename(next_file_name(name))
                 plink = PostLinkDownloadInfo(name, link_full, lpath, DownloadStatus())
