@@ -11,6 +11,7 @@ from typing import Protocol
 
 from .api import ScannedPostPost
 from .defs import PathFormatType
+from .util import sanitize_path
 
 __all__ = (
     'PathFormatter',
@@ -28,6 +29,11 @@ def ensure_max_length(base_string: str, max_len: int) -> str:
     while len(result) > max_len:
         result = result[:len(result) // 2]
     return result
+
+
+def normalize_format_string(base_string: str, max_len: int) -> str:
+    result = sanitize_path(base_string)
+    return ensure_max_length(result, max_len)
 
 
 class PathFormatter(Protocol):
@@ -50,13 +56,13 @@ class PathFormatterCreatorDashPostId:
 class PathFormatterCreatorDashTitlePostId:
     @staticmethod
     def format(post: ScannedPostPost) -> pathlib.Path:
-        return pathlib.Path(f'{post["user"]} - {ensure_max_length(post["title"], 50)} ({post["id"]})')
+        return pathlib.Path(f'{post["user"]} - {normalize_format_string(post["title"], 50)} ({post["id"]})')
 
 
 class PathFormatterCreatorDashPostIdDashTitle:
     @staticmethod
     def format(post: ScannedPostPost) -> pathlib.Path:
-        return pathlib.Path(f'{post["user"]} - {post["id"]} - {ensure_max_length(post["title"], 50)}')
+        return pathlib.Path(f'{post["user"]} - {post["id"]} - {normalize_format_string(post["title"], 50)}')
 
 
 PATH_FORMATTERS: dict[PathFormatType, PathFormatter] = {
