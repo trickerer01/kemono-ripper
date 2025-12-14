@@ -451,7 +451,7 @@ class KemonoDownloader:
                 furl = URL(file['path'])
                 links_dict.update({furl: file['name']})
 
-            if 'videos' in spost and (videos := spost['videos']):
+            if videos := spost.get('videos'):
                 for video in videos:
                     vurl = URL(video['path'])
                     links_dict.update({vurl: video['name']})
