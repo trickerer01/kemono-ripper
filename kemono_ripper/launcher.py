@@ -275,7 +275,7 @@ async def launch(kemono: Kemono) -> None:
         'post rip id': post_rip_id,
         'post rip url': post_rip_url,
         'post rip file': post_rip_file,
-        'post tag dump': post_tag_dump,
+        'post tags dump': post_tag_dump,
         'config create': config_create,
         'config modify': config_modify,
     }
