@@ -142,7 +142,7 @@ class BaseConfig:
         )
 
     def from_json(self, json_: ConfigJSON) -> None:
-        assert all(_ in json_ for _ in inspect.get_annotations(ConfigJSON).keys().mapping.keys())
+        assert all(_ in json_ for _ in inspect.get_annotations(ConfigJSON).keys().mapping)
         for k, v in json_.items():
             if k == 'dest_base':
                 v = pathlib.Path(v)

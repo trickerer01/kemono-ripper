@@ -277,10 +277,12 @@ class KemonoDownloader:
             await self.remove_from_writes(post, plink, True)
             if plink.path.is_file():
                 file_size = plink.path.stat().st_size
-                assert file_size == plink.status.expected_size, (
-                    f'Bytes written mismatch for {plink.local_path}'
-                    f' (size {file_size:d} vs expected {plink.status.expected_size:d})')
-                Log.info(f'{plink_id}: Completed, {plink.local_path}, size: {file_size / Mem.MB:.2f} MB')
+                if file_size != plink.status.expected_size:
+                    Log.error(f'Bytes written mismatch for {plink.local_path}'
+                              f' (size {file_size:d} vs expected {plink.status.expected_size:d})')
+                    Log.warn(f'{plink_id}: Failed: {ec!s}')
+                else:
+                    Log.info(f'{plink_id}: Completed, {plink.local_path}, size: {file_size / Mem.MB:.2f} MB')
             elif Config.download_mode != DownloadMode.SKIP:
                 Log.warn(f'{plink_id}: Failed: {ec!s}')
             dresult = (
