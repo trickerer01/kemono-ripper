@@ -42,6 +42,7 @@ class ConfigJSON(TypedDict):
     proxy: str
     logging_flags: int
     disable_log_colors: bool
+    no_external_links: bool
     timeout: int
     retries: int
     extra_headers: list[tuple[str, str]]
@@ -109,6 +110,7 @@ class BaseConfig:
         self.download_mode: str | None = None
         self.logging_flags: int | None = None
         self.disable_log_colors: bool | None = None
+        self.no_external_links: bool | None = None
         self.timeout: ClientTimeout | None = None
         self.retries: int | None = None
         self.extra_headers: list[tuple[str, str]] | None = None
@@ -134,6 +136,7 @@ class BaseConfig:
             proxy=self.proxy,
             logging_flags=self.logging_flags,
             disable_log_colors=self.disable_log_colors,
+            no_external_links=self.no_external_links,
             timeout=int(self.timeout.connect),
             retries=self.retries,
             extra_headers=self.extra_headers,

@@ -122,6 +122,7 @@ HELP_ARG_FILTER_POST_ID_RANGE = 'Post id range. Example: \'120000000-150000000\'
 HELP_ARG_FILTER_POST_DATE_RANGE = 'Post date range in format YYYY-MM-DD. Example 1: \'1970-01-01..2040-01-01\'. Example 2: \'2025-12-01..\''
 HELP_ARG_FILTER_FILEEXT = 'Only download files with given extensions. Can be used multiple times. Example: \'--ext .mp4 --ext .png\''
 HELP_ARG_FILTER_FILENAME = 'Only download files mathing given name pattern'
+HELP_ARG_NO_EXTERNAL_LINKS = 'Skip all external links'
 
 
 class NumRange(NamedTuple):

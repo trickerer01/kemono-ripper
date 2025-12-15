@@ -28,6 +28,7 @@ from .defs import (
     HELP_ARG_INDENT,
     HELP_ARG_LOGGING,
     HELP_ARG_MAXJOBS,
+    HELP_ARG_NO_EXTERNAL_LINKS,
     HELP_ARG_NOCOLORS,
     HELP_ARG_PATH,
     HELP_ARG_PATH_FORMAT,
@@ -240,6 +241,7 @@ def add_common_args(par: ArgumentParser) -> None:
     do.add_argument('-f', '--path-format', default=None, help=HELP_ARG_PATH_FORMAT, type=valid_path_format)
     do.add_argument('-d', '--download-mode', default=DM_DEFAULT, help=HELP_ARG_DMMODE, choices=DOWNLOAD_MODES)
     do.add_argument('-j', '--max-jobs', metavar='#number', default=None, help=HELP_ARG_MAXJOBS, type=valid_maxjobs)
+    do.add_argument('--no-external-links', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_NO_EXTERNAL_LINKS)
 
 
 def add_post_filtering_args(par: ArgumentParser, add_search_filters: bool, add_download_filters: bool) -> None:
@@ -469,6 +471,7 @@ def prepare_arglist(args: Sequence[str]) -> None:
         'path_format': valid_path_format(next(iter(PathFormatType.__args__))),
         'log_level': log_level(LOGGING_DEFAULT.name.lower()),
         'disable_log_colors': False,
+        'no_external_links': False,
         'timeout': valid_timeout(''),
         'retries': CONNECT_RETRIES_BASE,
     }

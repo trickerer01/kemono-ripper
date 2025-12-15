@@ -469,6 +469,9 @@ class KemonoDownloader:
                 if link_base.host in APIAddress.__args__ or not link_base.is_absolute():
                     link_full = next_api_address().with_path(f'data{link_base.path}')
                 else:
+                    if Config.no_external_links:
+                        Log.warn(f'[{user}:{pid}] {title}: skipping {link_base} due to \'--no-external-links\' flag!')
+                        continue
                     link_full = link_base
                 if not pathlib.Path(name).suffix:
                     name = f'{name}{link_base.suffix}'
