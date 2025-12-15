@@ -212,7 +212,7 @@ def create_parsers() -> dict[str, ArgumentParser]:
 
     par_config = create_parser(subs_main, PARSER_TITLE_CONFIG, '')
     subs_config = create_subparser(par_config, 'subcommand_2')
-    _ = create_parser(subs_config, PARSER_TITLE_CONFIG_CREATE, 'Create a default config file if doesn\'t exist')
+    _ = create_parser(subs_config, PARSER_TITLE_CONFIG_CREATE, 'Create config file if doesn\'t exist')
     _ = create_parser(subs_config, PARSER_TITLE_CONFIG_MODIFY, 'Change settings in config file')
 
     return parsers
@@ -287,8 +287,16 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     #  create
     pcfc = parsers[PARSER_TITLE_CONFIG_CREATE]
+    pcfc.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_CONFIG} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CONFIG_CREATE]}'
+        f' #[options...]'
+    )
     #  modify
     pcfm = parsers[PARSER_TITLE_CONFIG_MODIFY]
+    pcfm.usage = (
+        f'\n{INDENT}{MODULE} {PARSER_TITLE_CONFIG} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_CONFIG_MODIFY]}'
+        f' #[options...]'
+    )
 
     # Creators
     pc = parsers[PARSER_TITLE_CREATOR]
