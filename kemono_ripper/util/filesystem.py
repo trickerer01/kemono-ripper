@@ -7,18 +7,9 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 
 import re
-from typing import Final
 
 SLASH = '/'
-re_ext: Final = re.compile(r'(\.[^&]{3,5})&')
-
-
-def normalize_path(basepath: str, append_slash=True) -> str:
-    """Converts path string to universal slash-concatenated string, enclosing slash is optional"""
-    normalized_path = basepath.replace('\\', SLASH)
-    if append_slash and normalized_path and not normalized_path.endswith(SLASH):
-        normalized_path += SLASH
-    return normalized_path
+re_ext = re.compile(r'(\.[^&]{3,5})&')
 
 
 def sanitize_path(path_base: str) -> str:
@@ -33,11 +24,6 @@ def sanitize_path(path_base: str) -> str:
     while '__' in sane_path:
         sane_path = sane_path.replace('__', '_')
     return sane_path.strip('_')
-
-
-def normalize_filename(filename: str, base_path: str) -> str:
-    """Returns full path to a file, normalizing base path and removing disallowed symbols from file name"""
-    return f'{normalize_path(base_path)}{sanitize_path(filename)}'
 
 
 def extract_ext(href: str) -> str:

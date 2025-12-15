@@ -142,11 +142,8 @@ class BaseConfig:
         )
 
     def from_json(self, json_: ConfigJSON) -> None:
-        num_keys = len(inspect.get_annotations(ConfigJSON))
-        assert len(json_) >= num_keys, f'Invalid settings file format ({len(json_):d} keys found, expected {num_keys:d})!'
+        assert all(_ in json_ for _ in inspect.get_annotations(ConfigJSON).keys().mapping.keys())
         for k, v in json_.items():
-            if k not in vars(self):
-                raise KeyError(f'Invalid setting key \'{k}\' found with value \'{v!s}\'!')
             if k == 'dest_base':
                 v = pathlib.Path(v)
             elif k == 'timeout':

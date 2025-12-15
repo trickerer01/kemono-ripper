@@ -25,12 +25,9 @@ def test_prepare(log=False) -> Callable[[], Callable[[], None]]:
                 Log._disabled = not log
                 Config._reset()
                 RequestQueue._reset()
-
             set_up_test()
             test_func(*args, **kwargs)
-
         return invoke_test
-
     return invoke1
 
 
