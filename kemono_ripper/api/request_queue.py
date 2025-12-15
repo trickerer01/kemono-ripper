@@ -28,7 +28,7 @@ class RequestQueue:
 
     @staticmethod
     async def _set_ready() -> None:
-        await asyncio.sleep(random.uniform(CONNECT_REQUEST_DELAY, CONNECT_REQUEST_DELAY + 0.75))
+        await asyncio.sleep(random.uniform(CONNECT_REQUEST_DELAY, CONNECT_REQUEST_DELAY + 0.3))
         RequestQueue._ready = True
 
     @staticmethod

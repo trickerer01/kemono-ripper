@@ -8,7 +8,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 from enum import Enum
 
-CONNECT_REQUEST_DELAY = 0.3
+CONNECT_REQUEST_DELAY = 0.1
 CONNECT_RETRY_DELAY = (4.0, 8.0)
 
 CHUNK_BLOCK_LEN = 16

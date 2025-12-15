@@ -11,7 +11,7 @@ from __future__ import annotations
 import pathlib
 import random
 import sys
-from asyncio import sleep
+from asyncio import Semaphore, gather, sleep
 from collections.abc import Iterable
 
 from aiofile import async_open
@@ -232,10 +232,13 @@ class Kemono:
         return post
 
     async def scan_posts(self, links: Iterable[PostPageScanResult]) -> list[ScannedPost]:
-        scanned_posts: list[ScannedPost] = []
-        for link in links:
-            scanned_post = await self._scan_post(link)
-            scanned_posts.append(scanned_post)
+        async def scan_post_wrapper(plink) -> ScannedPost:
+            async with semaphore:
+                return await self._scan_post(plink)
+
+        semaphore = Semaphore(self._max_jobs)
+        tasks = [scan_post_wrapper(_) for _ in links]
+        scanned_posts: list[ScannedPost] = list(await gather(*tasks))
         return scanned_posts
 
     async def list_creators(self) -> list[Creator]:
