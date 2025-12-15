@@ -4,6 +4,7 @@
 *.json
 *.lnk
 *.exe
+*.bak
 !setup.cfg
 
 # IDE

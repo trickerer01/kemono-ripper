@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 
 from .api import APIAddress, Creator, Kemono, ListedPost, PostPageScanResult, ScannedPost, ScannedPostPost, SearchedPost
 from .config import Config
-from .defs import CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, PathURLJSONEncoder, SITE_MEGA, UTF8
+from .defs import CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, SITE_MEGA, UTF8, PathURLJSONEncoder
 from .downloader import KemonoDownloader
 from .filters import PostDateImportedFilter, PostDatePublishedFilter, PostIdFilter, any_filter_matching_ls_post
 from .logger import Log
@@ -242,12 +242,27 @@ async def post_tag_dump(kemono: Kemono) -> None:
         outfile_post_tags.write('\n')
 
 
-async def _config_write(config_path: pathlib.Path) -> None:  # noqa RUF029
-    Log.info(f'Writing configuration to {config_path.as_posix()}...')
-    with open(config_path, 'wt', encoding=UTF8, newline='\n') as outfile_settings:
-        json.dump(Config.to_json(), outfile_settings, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
-        outfile_settings.write('\n')
-    Log.info('Done')
+async def _config_write(config_path: pathlib.Path, *, use_backup=False) -> None:  # noqa RUF029
+    backup_file_path = config_path.with_suffix('.bak') if use_backup and config_path.is_file() else None
+    try:
+        Log.info(f'Writing configuration to {config_path.as_posix()}...')
+        with open(config_path, 'rt+', encoding=UTF8, newline='\n') as inoutfine_config:
+            if backup_file_path:
+                backup_json = json.load(inoutfine_config)
+                Log.debug(f'Saving backup to \'{backup_file_path.as_posix()}\'...')
+                with open(backup_file_path, 'wt', encoding=UTF8, newline='\n') as outfile_backup:
+                    json.dump(backup_json, outfile_backup, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
+                inoutfine_config.flush()
+                inoutfine_config.seek(0)
+                inoutfine_config.truncate()
+            json.dump(Config.to_json(), inoutfine_config, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
+            inoutfine_config.write('\n')
+        # if backup_file_path and backup_file_path.is_file():
+        #     Log.debug(f'Removing backup file \'{backup_file_path.as_posix()}\'...')
+        #     backup_file_path.unlink(missing_ok=True)
+        Log.info('Done')
+    except Exception:
+        Log.error(f'Failed to write to {config_path.as_posix()}!')
 
 
 async def config_create(*_) -> None:
@@ -267,7 +282,7 @@ async def config_modify(*_) -> None:
         Log.error('No settings modifications provided. Aborting')
         return
     config_path = Config.default_config_path()
-    await _config_write(config_path)
+    await _config_write(config_path, use_backup=True)
 
 
 async def launch(kemono: Kemono) -> None:
