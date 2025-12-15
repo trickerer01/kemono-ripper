@@ -37,7 +37,7 @@ class ConfigJSON(TypedDict):
     service: str
     skip_cache: bool
     max_jobs: int
-    dest_base: str
+    dest_base: pathlib.Path
     path_format: str
     proxy: str
     logging_flags: int
@@ -129,7 +129,7 @@ class BaseConfig:
             service=self.service,
             skip_cache=self.skip_cache,
             max_jobs=self.max_jobs,
-            dest_base=self.dest_base.as_posix(),
+            dest_base=self.dest_base,
             path_format=self.path_format,
             proxy=self.proxy,
             logging_flags=self.logging_flags,

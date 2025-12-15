@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 
 from .api import APIAddress, Creator, Kemono, ListedPost, PostPageScanResult, ScannedPost, ScannedPostPost, SearchedPost
 from .config import Config
-from .defs import CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, SITE_MEGA, UTF8
+from .defs import CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, PathURLJSONEncoder, SITE_MEGA, UTF8
 from .downloader import KemonoDownloader
 from .filters import PostDateImportedFilter, PostDatePublishedFilter, PostIdFilter, any_filter_matching_ls_post
 from .logger import Log
@@ -245,7 +245,7 @@ async def post_tag_dump(kemono: Kemono) -> None:
 async def _config_write(config_path: pathlib.Path) -> None:  # noqa RUF029
     Log.info(f'Writing configuration to {config_path.as_posix()}...')
     with open(config_path, 'wt', encoding=UTF8, newline='\n') as outfile_settings:
-        json.dump(Config.to_json(), outfile_settings, ensure_ascii=False, indent=Config.indent)
+        json.dump(Config.to_json(), outfile_settings, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
         outfile_settings.write('\n')
     Log.info('Done')
 

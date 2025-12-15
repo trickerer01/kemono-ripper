@@ -451,7 +451,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     pptdg1 = pptd.add_argument_group(title='options')
     pptdg1.add_argument('--prune', action=ACTION_STORE_TRUE, help=HELP_ARG_PRUNE)
 
-    [add_json_args(_) for _ in (pcd, pcr, ppri, ppru, pprf, pptd, pcfc)]
+    [add_json_args(_) for _ in (pcd, pcr, ppri, ppru, pprf, pptd, pcfc, pcfm)]
     [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
     [add_post_filtering_args(_, _ in (ppse, ppl, pcr), _ not in (ppse, ppl)) for _ in (ppl, pcr, ppse, ppri, ppru, pprf)]
     [add_logging_args(_) for _ in parsers.values()]
