@@ -203,6 +203,8 @@ class Kemono:
                     Log.info(f'[{self.api_address}] Saving{start_str} {action.post_link.name}'
                              f' {content_len / Mem.MB:.2f}{total_str} Mb to {local_path}')
                     async with async_open(action.post_link.path, 'ab') as output_file:
+                        if content_len > 16 * Mem.KB:
+                            try_num = 0  # reset try count if we can still download
                         async for chunk in r.content.iter_chunked(128 * Mem.KB):
                             await output_file.write(chunk)
                             bytes_written += len(chunk)
