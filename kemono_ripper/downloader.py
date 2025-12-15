@@ -41,7 +41,8 @@ from .config import Config, ExternalURLHandlerConfig, MegaConfig
 from .defs import FILE_NAME_FULL_MAX_LEN, POST_TAGS_PER_POST_INFO_DEFAULT, SITE_MEGA, UTF8, PathURLJSONEncoder
 from .filters import (
     LSPostFilter,
-    PostDateFilter,
+    PostDateImportedFilter,
+    PostDatePublishedFilter,
     PostIdFilter,
     PostLinkExtFilter,
     PostLinkFilter,
@@ -142,7 +143,8 @@ class KemonoDownloader:
 
         self._post_filters: list[LSPostFilter | None] = [
             PostIdFilter(Config.filter_post_ids) if Config.filter_post_ids else None,
-            PostDateFilter(Config.filter_post_dates) if Config.filter_post_dates else None,
+            PostDateImportedFilter(Config.filter_post_imported) if Config.filter_post_imported else None,
+            PostDatePublishedFilter(Config.filter_post_published) if Config.filter_post_published else None,
         ]
         self._post_link_filters: list[PostLinkFilter | None] = [
             PostLinkExtFilter(Config.filter_extensions) if Config.filter_extensions else None,

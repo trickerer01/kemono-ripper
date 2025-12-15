@@ -248,10 +248,11 @@ def add_post_filtering_args(par: ArgumentParser, add_search_filters: bool, add_d
     fi = par.add_argument_group(title='filtering options')
     if add_search_filters:
         fi.add_argument('--ids', metavar='#min-max', default=None, help=HELP_ARG_FILTER_POST_ID_RANGE, type=valid_range)
-        fi.add_argument('--dates', metavar='#min..max', default=None, help=HELP_ARG_FILTER_POST_DATE_RANGE, type=valid_date_range)
+        fi.add_argument('--imported', metavar='#min..max', default=None, help='', type=valid_date_range)
+        fi.add_argument('--published', metavar='#min..max', default=None, help=HELP_ARG_FILTER_POST_DATE_RANGE, type=valid_date_range)
     if add_download_filters:
-        # fi.add_argument('-fs', '--filter-filesize', metavar='#min-max', default=None, help='', type=valid_range)
-        fi.add_argument('-fn', '--filter-filename', metavar='#pattern', default=None, help=HELP_ARG_FILTER_FILENAME, type=valid_pattern)
+        # fi.add_argument('--filter-filesize', metavar='#min-max', default=None, help='', type=valid_range)
+        fi.add_argument('--filter-filename', metavar='#pattern', default=None, help=HELP_ARG_FILTER_FILENAME, type=valid_pattern)
         fi.add_argument('--ext', metavar='#.EXT', action=ACTION_APPEND, help=HELP_ARG_FILTER_FILEEXT, type=valid_ext)
 
 

@@ -100,7 +100,7 @@ class ScannedPostPost(TypedDict):
     content: str
     embed: dict  # TODO: validate
     shared_file: bool
-    added: str
+    added: str  # 'imported'
     published: str
     edited: str
     file: ScannedPostPostFile
@@ -109,8 +109,8 @@ class ScannedPostPost(TypedDict):
     # captions: unk
     tags: list[str] | None
     # incomplete_rewards: key may be absent
-    next: str | None
-    prev: str | None
+    # next: str | None  # optional
+    # prev: str | None  # optional
 
 
 class ScannedPostAttachment(TypedDict):
@@ -160,22 +160,13 @@ class ScannedPost(TypedDict):
     props: ScannedPostProps
 
 
-class SearchedPost(TypedDict):
-    id: str
-    user: str
-    service: APIService
-    title: str
-    content: str
-    embed: dict  # TODO: validate
-    shared_file: bool
-    added: str
-    published: str
-    edited: str
-    file: ScannedPostPostFile
-    attachments: list[ScannedPostPostAttachment]
-    poll: ScannedPostPostPoll | None
-    # captions: unk
-    tags: list[str] | None
+# Post search
+class SearchedPostFile(ScannedPostPostFile):
+    pass
+
+
+class SearchedPost(ScannedPostPost):
+    pass
 
 
 class SearchedPosts(TypedDict):
@@ -184,12 +175,13 @@ class SearchedPosts(TypedDict):
     posts: list[SearchedPost]
 
 
+# Post tags
 class PostListedTag(TypedDict):
     tag: str
     post_count: int
 
 
-APIResponse: TypeAlias = list[Creator] | list[ListedPost] | FreePost | ScannedPost | list[PostListedTag] | SearchedPosts
+APIResponse: TypeAlias = list[Creator] | list[PostListedTag] | list[ListedPost] | FreePost | ScannedPost | SearchedPosts
 APIEndpointParams: TypeAlias = tuple[str], tuple[str, str] | tuple[str, str, str] | tuple[str, str, list[str]]
 APIRequestParams: TypeAlias = dict[str, str | int]
 APIRequestData: TypeAlias = dict[str, str | APIRequestParams]
