@@ -234,7 +234,7 @@ class Kemono:
         return post
 
     async def scan_posts(self, links: Iterable[PostPageScanResult]) -> list[ScannedPost]:
-        async def scan_post_wrapper(plink) -> ScannedPost:
+        async def scan_post_wrapper(plink: PostPageScanResult) -> ScannedPost:
             async with semaphore:
                 return await self._scan_post(plink)
 
