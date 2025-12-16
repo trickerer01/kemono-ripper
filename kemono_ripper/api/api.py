@@ -187,7 +187,7 @@ class Kemono:
                     content_range_s = str(r.headers.get('Content-Range', '/')).split('/', 1)
                     content_range = int(content_range_s[1]) if len(content_range_s) > 1 and content_range_s[1].isnumeric() else 1
                     if (content_len == 0 or r.status == 416) and file_size >= content_range:
-                        Log.warn(f'{local_path}) is already completed, size: {file_size:d} ({file_size / Mem.MB:.2f} Mb)')
+                        Log.warn(f'{local_path} is already completed, size: {file_size:d} ({file_size / Mem.MB:.2f} Mb)')
                         action.post_link.status.expected_size = file_size
                         return KemonoErrorCodes.EEXISTS
                     if r.status == 404:
