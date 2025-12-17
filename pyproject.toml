@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'kemono-ripper'
-version = '0.9.77'
+version = '0.9.78'
 authors = [
     {name = 'trickerer01'},
 ]
@@ -45,7 +45,8 @@ dependencies = [
     'colorama>=0.4.6',
     'fake-useragent>=2.0.3',
     'yarl>=1.20',
-    'mega-download @ https://github.com/trickerer01/mega-download/tarball/master#mega-download'
+    'mega-download @ https://github.com/trickerer01/mega-download/tarball/master#mega-download',
+    'mediafire-download @ https://github.com/trickerer01/mediafire-download/tarball/master#mediafire-download',
 ]
 [project.optional-dependencies]
 default = []

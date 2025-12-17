@@ -200,6 +200,7 @@ class MegaConfig:
         self.extra_headers: list[tuple[str, str]] | None = overrides.pop('extra_headers', config.extra_headers)
         self.extra_cookies: list[tuple[str, str]] | None = overrides.pop('extra_cookies', config.extra_cookies)
         self.nodelay: bool = overrides.pop('nodelay', config.nodelay)
+        self.noconfirm: bool = overrides.pop('noconfirm', True)
 
 
 Config: BaseConfig = BaseConfig()
