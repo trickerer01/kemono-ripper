@@ -68,6 +68,12 @@ class FreePost(TypedDict):
     post_id: str
 
 
+class ScannedPostPostEmbed(TypedDict):
+    url: str  # URL
+    subject: str | None
+    description: str | None
+
+
 class ScannedPostPostFile(TypedDict):
     name: str
     path: str
@@ -98,11 +104,11 @@ class ScannedPostPost(TypedDict):
     service: APIService
     title: str
     content: str
-    embed: dict  # TODO: validate
+    embed: ScannedPostPostEmbed
     shared_file: bool
     added: str  # 'imported'
     published: str
-    edited: str
+    edited: str | None
     file: ScannedPostPostFile
     attachments: list[ScannedPostPostAttachment]
     poll: ScannedPostPostPoll | None
