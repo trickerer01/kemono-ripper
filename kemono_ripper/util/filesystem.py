@@ -23,7 +23,7 @@ def sanitize_path(path_base: str) -> str:
     sane_path = ''.join(map(char_replace, path_base)).replace('\0', '_')
     while '__' in sane_path:
         sane_path = sane_path.replace('__', '_')
-    return sane_path.strip('_')
+    return sane_path.strip('_.')
 
 
 def extract_ext(href: str) -> str:
