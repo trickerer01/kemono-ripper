@@ -521,7 +521,7 @@ class KemonoDownloader:
             links_str = '\n'.join(f' {pldi.url.human_repr()} => {pldi.local_path}' for title, pldi in links.items())
             post_strings.append(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links:\n{links_str}')
 
-        Log.info('\n'.join(post_strings))
+        [Log.info(_) for _ in post_strings]
         return sum(len(_.links) for _ in self._post_info.values())
 
     @staticmethod
