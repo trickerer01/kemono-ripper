@@ -8,7 +8,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 import inspect
 import pathlib
-from typing import Protocol, TypedDict
+from typing import TypedDict
 
 from aiohttp import ClientTimeout
 
@@ -25,7 +25,7 @@ from .defs import (
 if False is True:  # for hinting only
     from .api import APIAddress, APIService, PostPageScanResult  # noqa: I001
 
-__all__ = ('Config', 'ExternalURLHandlerConfig', 'MegaConfig')
+__all__ = ('Config', 'ExternalURLHandlerConfig')
 
 
 class DownloaderConfig(TypedDict):
@@ -159,28 +159,46 @@ class BaseConfig:
         return root_path / CONFIG_NAME_DEFAULT
 
 
-class ExternalURLHandlerConfig(Protocol):
+class ExternalURLHandlerConfig:
+    # MEGA, Mediafire
     filter_filesize: NumRange | None
+    # MEGA, Mediafire
     filter_filename: str | None
+    # MEGA, Mediafire
     filter_extensions: list[str] | None
+    # MEGA, Mediafire
     dump_links: bool | None
+    # MEGA, Mediafire
     dump_structure: bool | None
+    # MEGA, Mediafire
     links_file: pathlib.Path | None
+    # MEGA, Mediafire
     links: list[str] | None
+    # MEGA, Mediafire
     max_jobs: int | None
+    # MEGA, Mediafire
     dest_base: pathlib.Path | None
+    # MEGA, Mediafire
     proxy: str | None
+    # MEGA, Mediafire
     download_mode: str | None
+    # MEGA, Mediafire
     logging_flags: int
+    # MEGA, Mediafire
     nocolors: bool | None
+    # MEGA, Mediafire
     timeout: ClientTimeout | None
+    # MEGA, Mediafire
     retries: int
+    # MEGA, Mediafire
     extra_headers: list[tuple[str, str]] | None
+    # MEGA, Mediafire
     extra_cookies: list[tuple[str, str]] | None
+    # MEGA, Mediafire
     nodelay: bool
+    # MEGA, Mediafire
+    noconfirm: bool
 
-
-class MegaConfig:
     def __init__(self, config: BaseConfig, **overrides) -> None:
         self.dump_links: bool | None = False
         self.dump_structure: bool | None = False

@@ -6,3 +6,4 @@ colorama>=0.4.6
 fake-useragent>=2.0.3
 yarl>=1.20
 mega-download @ https://github.com/trickerer01/mega-download/tarball/master#mega-download
+mediafire-download @ https://github.com/trickerer01/mediafire-download/tarball/master#mediafire-download

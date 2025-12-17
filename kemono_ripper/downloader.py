@@ -37,8 +37,8 @@ from .api import (
     ScannedPostPost,
     State,
 )
-from .config import Config, ExternalURLHandlerConfig, MegaConfig
-from .defs import FILE_NAME_FULL_MAX_LEN, POST_TAGS_PER_POST_INFO_DEFAULT, SITE_MEGA, UTF8, PathURLJSONEncoder
+from .config import Config, ExternalURLHandlerConfig
+from .defs import FILE_NAME_FULL_MAX_LEN, POST_TAGS_PER_POST_INFO_DEFAULT, SITE_MEDIAFIRE, SITE_MEGA, UTF8, PathURLJSONEncoder
 from .filters import (
     LSPostFilter,
     PostDateImportedFilter,
@@ -53,6 +53,10 @@ from .formatter import get_path_formatter
 from .logger import Log
 from .util import sanitize_path
 
+try:
+    import mediafire_download as handler_mediafire
+except ImportError:
+    handler_mediafire = None
 try:
     import mega_download as handler_mega
 except ImportError:
@@ -71,7 +75,7 @@ class ExternalURLHandler(Protocol):
     _semaphore: Semaphore
 
     @staticmethod
-    async def run(url: str, config: ExternalURLHandlerConfig) -> list[pathlib.Path]: ...
+    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]: ...
 
     @staticmethod
     def name() -> str: ...
@@ -84,9 +88,9 @@ class MegaURLHandler:
     _semaphore: Semaphore = Semaphore(1)
 
     @staticmethod
-    async def run(url: str, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
+    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
         async with MegaURLHandler._semaphore:
-            return await handler_mega.MegaDownloader([url], config).run()
+            return await handler_mega.MegaDownloader([url.human_repr()], config).run()
 
     @staticmethod
     def name() -> str:
@@ -95,6 +99,23 @@ class MegaURLHandler:
     @staticmethod
     def app_name() -> str:
         return handler_mega.APP_NAME
+
+
+class MediafireURLHandler:
+    _semaphore: Semaphore = Semaphore(1)
+
+    @staticmethod
+    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
+        async with MediafireURLHandler._semaphore:
+            return await handler_mediafire.MediafireDownloader([url.human_repr()], config).run()
+
+    @staticmethod
+    def name() -> str:
+        return 'Mediafire'
+
+    @staticmethod
+    def app_name() -> str:
+        return handler_mediafire.APP_NAME
 
 
 class ExternalURLDownloader:
@@ -114,7 +135,7 @@ class ExternalURLDownloader:
     def app_name(self) -> str:
         return self._handler.app_name() if self.valid() else 'Unknown'
 
-    async def download(self, *, plink_id: str, url: str, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
+    async def download(self, plink_id: str, url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
         try:
             assert self.valid()
             mresults = await self._handler.run(url, config) if self.valid() else []
@@ -174,6 +195,8 @@ class KemonoDownloader:
 
         if handler_mega:
             register_external_downloader(SITE_MEGA, MegaURLHandler())
+        if handler_mediafire:
+            register_external_downloader(SITE_MEDIAFIRE, MediafireURLHandler())
 
     async def __aenter__(self) -> KemonoDownloader:
         return self
@@ -262,7 +285,7 @@ class KemonoDownloader:
         handler_ex = ExternalURLDownloader(plink.url)
         if handler_ex.valid():
             Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
-            mresults = await handler_ex.download(plink_id=plink_id, url=url_str, config=MegaConfig(Config, dest_base=plink.path))
+            mresults = await handler_ex.download(plink_id, plink.url, ExternalURLHandlerConfig(Config, dest_base=plink.path))
             succ_count = len([_.is_file() for _ in mresults])
             Log.info(f'{plink_id}: {handler_ex.app_name()} handled {url_str} with {succ_count:d} / {len(mresults):d} success')
             dresult = DownloadResult.HANDLED_EXTERNALLY
