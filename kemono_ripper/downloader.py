@@ -420,6 +420,10 @@ class KemonoDownloader:
         post_strings: list[str] = []
         for spost_idx, spost in enumerate(scanned_posts):  # noqa B007  # stupid ruff
             post: ScannedPostPost = spost['post']
+
+            if not post['title']:
+                post['title'] = 'Untitled'
+
             pid = post['id']
             user = post['user']
             title = post['title']
