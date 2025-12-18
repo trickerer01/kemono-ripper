@@ -55,6 +55,8 @@ from .types import (
 
 __all__ = ('Kemono',)
 
+CLIENT_CONNECTOR_ERRORS = (ClientPayloadError, ClientConnectorError)
+
 
 class Kemono:
     def __init__(self, options: KemonoOptions) -> None:
@@ -148,7 +150,7 @@ class Kemono:
                     return result
             except Exception as e:
                 Log.error(f'{action.get_url().human_repr()}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
-                if (r is None or r.status != 403) and not isinstance(e, (ClientPayloadError, ClientConnectorError)):
+                if (r is None or r.status != 403) and not isinstance(e, CLIENT_CONNECTOR_ERRORS):
                     try_num += 1
                     Log.error(f'{action.get_url().human_repr()}: error #{try_num:d}...')
                 if r is not None and not r.closed:
@@ -211,7 +213,7 @@ class Kemono:
                 return KemonoErrorCodes.ESUCCESS
             except Exception as e:
                 Log.error(f'{local_path}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
-                if (r is None or r.status != 403) and not isinstance(e, (ClientPayloadError, ClientConnectorError)):
+                if (r is None or r.status != 403) and not isinstance(e, CLIENT_CONNECTOR_ERRORS):
                     try_num += 1
                     Log.error(f'{local_path}: error #{try_num:d}...')
                 if r is not None and not r.closed:
