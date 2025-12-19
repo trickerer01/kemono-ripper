@@ -498,7 +498,11 @@ class KemonoDownloader:
 
             links: dict[str, PostLinkDownloadInfo] = {}
             for link_base, name in links_dict.items():
-                if link_base.host in APIAddress.__args__ or not link_base.is_absolute():
+                if link_base.is_absolute() and not link_base.scheme:
+                    link_base = link_base.with_scheme('https')
+                if not link_base.is_absolute() or link_base.host in APIAddress.__args__:
+                    if link_base.path.startswith('/data'):
+                        link_base = link_base.with_path(link_base.path[len('/data'):])
                     link_full = next_api_address().with_path(f'data{link_base.path}')
                 else:
                     if Config.no_external_links:
