@@ -462,7 +462,8 @@ class KemonoDownloader:
                     bs_tags = bs.find_all(tag_type)
                     check_mega_keys = tag_type == 'a'
                     keys_mega: list[str] = [
-                        re.search(r'([#!]?\w{28,})', _.string).group(1) for _ in bs.find_all(text=re.compile(r'\W{2,}[#!]?\w{28,}'))
+                        re.search(r'([-\d\w]{32,})', _.string).group(1)
+                        for _ in bs.find_all(text=re.compile(r'(?:^|[^/]+ [!#]?)[-\d\w]{32,}'))
                     ] if check_mega_keys else []
                     key_idx = 0
                     for bs_tag in bs_tags:
@@ -476,9 +477,9 @@ class KemonoDownloader:
                             else:
                                 link_idx += 1
                                 link_name = f'unnamed_{link_idx:02d}'
-                                if key_idx < len(keys_mega) and url.host == SITE_MEGA and '#' not in url_purged.path:
+                                if key_idx < len(keys_mega) and url.host == SITE_MEGA and not url_purged.fragment:
                                     key = keys_mega[key_idx]
-                                    url_purged = url_purged.with_fragment(key[1 if '#' in key else 0:])
+                                    url_purged = url_purged.with_fragment(key)
                                     key_idx += 1
                             links_dict.update({url_purged: link_name})
 
