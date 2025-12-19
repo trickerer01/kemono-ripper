@@ -463,7 +463,7 @@ class KemonoDownloader:
                     check_mega_keys = tag_type == 'a'
                     keys_mega: list[str] = [
                         re.search(r'([-\d\w]{32,})', _.string).group(1)
-                        for _ in bs.find_all(text=re.compile(r'(?:^|[^/]+ [!#]?)[-\d\w]{32,}'))
+                        for _ in bs.find_all(text=re.compile(r'(?:^|[^/]+ )[!#]?[-\d\w]{32,}'))
                     ] if check_mega_keys else []
                     key_idx = 0
                     for bs_tag in bs_tags:
@@ -498,7 +498,7 @@ class KemonoDownloader:
 
             links: dict[str, PostLinkDownloadInfo] = {}
             for link_base, name in links_dict.items():
-                if link_base.is_absolute() and not link_base.scheme:
+                if link_base.is_absolute() and not link_base.scheme:  # boosty content <img>
                     link_base = link_base.with_scheme('https')
                 if not link_base.is_absolute() or link_base.host in APIAddress.__args__:
                     if link_base.path.startswith('/data'):
