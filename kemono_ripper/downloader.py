@@ -445,6 +445,10 @@ class KemonoDownloader:
                     else:
                         Log.warn(f'[{user}:{pid}] {title}: unsupported preview type \'{preview["type"]}\'!')
 
+            if embed := post['embed']:
+                eurl = URL(embed['url'])
+                links_dict.update({eurl: embed['subject'] or 'Untitled'})
+
             if attachments := post['attachments']:
                 for attachment in attachments:
                     aurl = URL(attachment['path'])
