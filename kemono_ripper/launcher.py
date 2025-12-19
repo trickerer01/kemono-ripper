@@ -48,12 +48,13 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
     for lpost in reversed(results):
         pid = lpost['id']
         user = lpost['user']
+        service = lpost['service']
         title = lpost['title']
         if spfilter := any_filter_matching_ls_post(lpost, filters):
             filtered[spfilter] += 1
             Log.debug(f'[{user}:{pid}] {title}: post was filtered out by {spfilter!s}...')
             continue
-        url = f'https://{kemono.api_address}/{Config.service}/user/{user}/post/{pid}'
+        url = f'https://{kemono.api_address}/{service}/user/{user}/post/{pid}'
         msg = (f'{url} \'{lpost["title"]}\', file: \'{lpost["file"]["name"] if lpost["file"] else "None"}\','
                f' {len(lpost["attachments"]):d} attachments')
         listing.append(msg)
