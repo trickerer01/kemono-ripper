@@ -63,6 +63,7 @@ class BaseConfig:
         'post_id': 'post_ids',
         'lines': 'filter_file_lines',
         'ids': 'filter_post_ids',
+        'notag': 'filter_post_tags',
         'imported': 'filter_post_imported',
         'published': 'filter_post_published',
         'ext': 'filter_extensions',
@@ -96,6 +97,7 @@ class BaseConfig:
         self.filter_filesize: NumRange | None = None
         self.filter_filename: str | None = None
         self.filter_post_ids: NumRange | None = None
+        self.filter_post_tags: list[str] | None = None
         self.filter_post_imported: DateRange | None = None
         self.filter_post_published: DateRange | None = None
         self.filter_extensions: list[str] | None = None

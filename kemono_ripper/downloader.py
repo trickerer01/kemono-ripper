@@ -41,13 +41,11 @@ from .config import Config, ExternalURLHandlerConfig
 from .defs import FILE_NAME_FULL_MAX_LEN, POST_TAGS_PER_POST_INFO_DEFAULT, SITE_MEDIAFIRE, SITE_MEGA, UTF8, PathURLJSONEncoder
 from .filters import (
     LSPostFilter,
-    PostDateImportedFilter,
-    PostDatePublishedFilter,
-    PostIdFilter,
-    PostLinkExtFilter,
     PostLinkFilter,
     any_filter_matching_ls_post,
     any_filter_matching_post_link,
+    make_lspost_filters,
+    make_post_link_filters,
 )
 from .formatter import get_path_formatter
 from .logger import Log
@@ -162,14 +160,8 @@ class KemonoDownloader:
         self._kemono: Final[Kemono] = kemono
         self._post_info: Final[dict[str, PostDownloadInfo]] = {}
 
-        self._post_filters: list[LSPostFilter | None] = [
-            PostIdFilter(Config.filter_post_ids) if Config.filter_post_ids else None,
-            PostDateImportedFilter(Config.filter_post_imported) if Config.filter_post_imported else None,
-            PostDatePublishedFilter(Config.filter_post_published) if Config.filter_post_published else None,
-        ]
-        self._post_link_filters: list[PostLinkFilter | None] = [
-            PostLinkExtFilter(Config.filter_extensions) if Config.filter_extensions else None,
-        ]
+        self._post_filters: list[LSPostFilter | None] = make_lspost_filters()
+        self._post_link_filters: list[PostLinkFilter | None] = make_post_link_filters()
 
         self._queue_produce: deque[PostDownloadInfo] = deque()
         self._queue_consume: AsyncQueue[PostDownloadInfo] = AsyncQueue(Config.max_jobs)

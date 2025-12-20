@@ -120,6 +120,7 @@ HELP_ARG_POST_FILE_LINES = 'Range of lines to read from the target file. Example
 HELP_ARG_POST_TAG = 'Post tags. List of popular tags can be fetched using \'post tags dump\' command'
 HELP_ARG_SEARCH_STRING = 'Search query string'
 HELP_ARG_FILTER_POST_ID_RANGE = 'Post id range. Example: \'120000000-150000000\'. Not all post ids are numeric!'
+HELP_ARG_FILTER_POST_TAGS = 'Post tags pattern to exclude. Can be used multiple times. Example: \'--notag hmv\''
 HELP_ARG_FILTER_POST_DATE_RANGE = 'Post date range in format YYYY-MM-DD. Example 1: \'1970-01-01..2040-01-01\'. Example 2: \'2025-12-01..\''
 HELP_ARG_FILTER_FILEEXT = 'Only download files with given extensions. Can be used multiple times. Example: \'--ext .mp4 --ext .png\''
 HELP_ARG_FILTER_FILENAME = 'Only download files mathing given name pattern'

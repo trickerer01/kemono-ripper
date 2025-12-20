@@ -19,7 +19,7 @@ from .api import APIAddress, Creator, Kemono, ListedPost, PostPageScanResult, Sc
 from .config import Config
 from .defs import CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, SITE_MEGA, UTF8, PathURLJSONEncoder
 from .downloader import KemonoDownloader
-from .filters import PostDateImportedFilter, PostDatePublishedFilter, PostIdFilter, any_filter_matching_ls_post
+from .filters import any_filter_matching_ls_post, make_lspost_filters
 from .logger import Log
 from .util import HTTP_PREFIX, HTTPS_PREFIX
 
@@ -29,7 +29,7 @@ from .validators import valid_post_url
 
 
 def _need_convert_to_scan_result(post: ListedPost | SearchedPost):
-    return 'added' not in post
+    return 'added' not in post or ('tags' not in post and Config.filter_post_tags)
 
 
 async def _process_list_search_results(kemono: Kemono, results: MutableSequence[ListedPost] | Sequence[SearchedPost]):
@@ -40,9 +40,7 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
         results[:] = [_['post'] for _ in sresults]
         Log.info(f'Received {len(results)} results. Continuing...')
 
-    filters = (PostIdFilter(Config.filter_post_ids) if Config.filter_post_ids else None,
-               PostDateImportedFilter(Config.filter_post_imported) if Config.filter_post_imported else None,
-               PostDatePublishedFilter(Config.filter_post_published) if Config.filter_post_published else None)
+    filters = make_lspost_filters()
     filtered = dict.fromkeys(filters, 0)
     listing: list[str] = []
     for lpost in reversed(results):

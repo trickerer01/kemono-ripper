@@ -24,6 +24,7 @@ from .defs import (
     HELP_ARG_FILTER_FILENAME,
     HELP_ARG_FILTER_POST_DATE_RANGE,
     HELP_ARG_FILTER_POST_ID_RANGE,
+    HELP_ARG_FILTER_POST_TAGS,
     HELP_ARG_HEADER,
     HELP_ARG_INDENT,
     HELP_ARG_LOGGING,
@@ -250,6 +251,7 @@ def add_post_filtering_args(par: ArgumentParser, add_search_filters: bool, add_d
     fi = par.add_argument_group(title='filtering options')
     if add_search_filters:
         fi.add_argument('--ids', metavar='#min-max', default=None, help=HELP_ARG_FILTER_POST_ID_RANGE, type=valid_range)
+        fi.add_argument('--notag', metavar='#pattern', action=ACTION_APPEND, help=HELP_ARG_FILTER_POST_TAGS, type=valid_pattern)
         fi.add_argument('--imported', metavar='#min..max', default=None, help='', type=valid_date_range)
         fi.add_argument('--published', metavar='#min..max', default=None, help=HELP_ARG_FILTER_POST_DATE_RANGE, type=valid_date_range)
     if add_download_filters:
@@ -354,7 +356,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     ppse = parsers[PARSER_TITLE_POST_SEARCH]
     ppse.usage = (
         f'\n{INDENT}{MODULE} {PARSER_TITLE_POST} {PARSER_TITLE_NAMES_REMAP[PARSER_TITLE_POST_SEARCH]}'
-        f' #string #[tag [tag ...]]'
+        f' #[options...] #string #[tag [tag ...]]'
     )
     ppseg1 = ppse.add_argument_group(title='options')
     ppseg1.add_argument('search_string', metavar='string', help=HELP_ARG_SEARCH_STRING)
@@ -455,7 +457,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
 
     [add_json_args(_) for _ in (pcd, pcr, ppri, ppru, pprf, pptd, pcfc, pcfm)]
     [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
-    [add_post_filtering_args(_, _ in (ppse, ppl, pcr), _ not in (ppse, ppl)) for _ in (ppl, pcr, ppse, ppri, ppru, pprf)]
+    [add_post_filtering_args(_, _ in (pcr, ppl, ppse), _ not in (ppl, ppse)) for _ in (pcr, ppl, ppse, ppri, ppru, pprf)]
     [add_logging_args(_) for _ in parsers.values()]
     [add_help(_, _ == parser_root) for _ in parsers.values()]
     return execute_parser(parser_root, args)
