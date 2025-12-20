@@ -254,6 +254,8 @@ class Kemono:
         offset = 0
         while len(all_posts) % POSTS_PER_PAGE == 0:
             posts: list[ListedPost] = await self._query_api(GetCreatorPostsAction(self._api_address, self._service, creator_id, offset))
+            if not posts:
+                break
             Log.info(f'Page {offset // POSTS_PER_PAGE + 1:d}...')
             all_posts.extend(posts)
             offset += POSTS_PER_PAGE
@@ -264,9 +266,11 @@ class Kemono:
         offset = 0
         while len(all_posts) % POSTS_PER_PAGE == 0:
             posts: SearchedPosts = await self._query_api(SearchPostsAction(self._api_address, query, offset, tags))
+            post_list = posts['posts']
+            if not post_list:
+                break
             Log.info(f'Page {offset // POSTS_PER_PAGE + 1:d} / {(int(posts["count"]) + POSTS_PER_PAGE - 1) // POSTS_PER_PAGE}...')
-            posts_list = posts['posts']
-            all_posts.extend(posts_list)
+            all_posts.extend(post_list)
             offset += POSTS_PER_PAGE
         return all_posts
 
