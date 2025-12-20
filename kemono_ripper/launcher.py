@@ -63,7 +63,9 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
         f'{len(listing):d} posts found ({len(results) - len(listing):d} / {len(results):d} filtered out)',
         *listing,
     )
-    Log.info('\n'.join(msgs))
+    for msg in msgs:
+        Log.info(msg)
+    Log.info('Done.')
 
 
 async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], *, download=False) -> None:
