@@ -146,7 +146,7 @@ class PostTagsFilter:
         return False
 
     def __str__(self) -> str:
-        return f'{self.__class__.__name__}<\'{self._last_filtered}\' <- {[_.pattern[1:-1] for _ in self._patterns]!s}>'
+        return f'{self.__class__.__name__}<\'{self._last_filtered}\' <- {[f"-{_.pattern[1:-1]}" for _ in self._patterns]!s}>'
 
 
 class PostLinkFilter(Protocol):
