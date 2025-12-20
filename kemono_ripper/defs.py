@@ -58,6 +58,7 @@ PathFormatType: TypeAlias = Literal[
 
 class SupportedExternalWebsite(str, Enum):
     MegaNz = SITE_MEGA
+    Mediafire = SITE_MEDIAFIRE
 
 
 class LoggingFlags(IntEnum):

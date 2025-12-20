@@ -245,23 +245,27 @@ async def _config_write(config_path: pathlib.Path, *, use_backup=False) -> None:
     backup_file_path = config_path.with_suffix('.bak') if use_backup and config_path.is_file() else None
     try:
         Log.info(f'Writing configuration to {config_path.as_posix()}...')
-        with open(config_path, 'rt+', encoding=UTF8, newline='\n') as inoutfine_config:
-            if backup_file_path:
-                backup_json = json.load(inoutfine_config)
-                json_to_save = backup_json | Config.to_json()
-                Log.debug(f'Saving backup to \'{backup_file_path.as_posix()}\'...')
-                with open(backup_file_path, 'wt', encoding=UTF8, newline='\n') as outfile_backup:
-                    json.dump(backup_json, outfile_backup, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
-                inoutfine_config.flush()
-                inoutfine_config.seek(0)
-                inoutfine_config.truncate()
-            else:
-                json_to_save = Config.to_json()
-            json.dump(json_to_save, inoutfine_config, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
-            inoutfine_config.write('\n')
-        # if backup_file_path and backup_file_path.is_file():
-        #     Log.debug(f'Removing backup file \'{backup_file_path.as_posix()}\'...')
-        #     backup_file_path.unlink(missing_ok=True)
+        if config_path.is_file():
+            with open(config_path, 'rt+', encoding=UTF8, newline='\n') as inoutfine_config:
+                if backup_file_path:
+                    backup_json = json.load(inoutfine_config)
+                    json_to_save = backup_json | Config.to_json()
+                    Log.debug(f'Saving backup to \'{backup_file_path.as_posix()}\'...')
+                    with open(backup_file_path, 'wt', encoding=UTF8, newline='\n') as outfile_backup:
+                        json.dump(backup_json, outfile_backup, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
+                    inoutfine_config.flush()
+                    inoutfine_config.seek(0)
+                    inoutfine_config.truncate()
+                else:
+                    json_to_save = Config.to_json()
+                json.dump(json_to_save, inoutfine_config, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
+                inoutfine_config.write('\n')
+            # if backup_file_path and backup_file_path.is_file():
+            #     Log.debug(f'Removing backup file \'{backup_file_path.as_posix()}\'...')
+            #     backup_file_path.unlink(missing_ok=True)
+        else:
+            with open(config_path, 'wt', encoding=UTF8, newline='\n') as outfine_config:
+                json.dump(Config.to_json(), outfine_config, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
         Log.info('Done')
     except Exception:
         Log.error(f'Failed to write to {config_path.as_posix()}!')

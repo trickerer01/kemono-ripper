@@ -49,9 +49,10 @@ def autopick_config() -> None:
             Log.debug(f'Using base configuration file {base_config_path.as_posix()}')
             Config.from_json(json.load(in_file))
     except OSError:
-        Log.warn(f'Warning: config file \'{CONFIG_NAME_DEFAULT}\' is not found in \'{base_config_path.parent.as_posix()}\'!'
-                 f' Default setting will be used.'
-                 f'\nYou can make base config file for autoconfiguration using \'{MODULE} config create\' command')
+        if not (len(sys.argv) >= 3 and ' '.join(sys.argv[1:3]) == 'config create'):
+            Log.warn(f'Warning: config file \'{CONFIG_NAME_DEFAULT}\' is not found in \'{base_config_path.parent.as_posix()}\'!'
+                     f' Default setting will be used.'
+                     f'\nYou can make base config file for autoconfiguration using \'{MODULE} config create\' command')
 
 
 def make_kemono_options() -> KemonoOptions:
