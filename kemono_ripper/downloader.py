@@ -406,7 +406,7 @@ class KemonoDownloader:
             return f'{next_file_name.name_idx:02d}_{name_base}'
 
         def next_api_address() -> URL:
-            next_api_address.name_idx = (getattr(next_api_address, 'name_idx', random.randint(1, 99)) + random.randint(1, 99)) % 3 + 1
+            next_api_address.name_idx = (getattr(next_api_address, 'name_idx', random.randint(1, 99)) + random.randint(1, 99)) % 4 + 1
             return URL(f'https://n{next_api_address.name_idx:d}.{self._kemono.api_address}')
 
         post_strings: list[str] = []
