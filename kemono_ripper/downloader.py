@@ -459,6 +459,9 @@ class KemonoDownloader:
                     ] if check_mega_keys else []
                     key_idx = 0
                     for bs_tag in bs_tags:
+                        if bs_tag.get(tag_name) is None:
+                            Log.warn(f'[{user}:{pid}] {title}: tag \'{tag_name}\' was not found in content element {bs_tag!s}. Skipped')
+                            continue
                         url = URL(bs_tag[tag_name])
                         url_purged = url.with_query('')
                         if url_purged not in links_dict:
