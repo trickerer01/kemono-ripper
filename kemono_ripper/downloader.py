@@ -490,6 +490,10 @@ class KemonoDownloader:
 
             links: dict[str, PostLinkDownloadInfo] = {}
             for link_base, name in links_dict.items():
+                # check if MEGA links were properly parsed / fixed
+                if link_base.host == SITE_MEGA and len(link_base.path) + len(link_base.fragment) < 26:
+                    Log.error(f'{SITE_MEGA} link {link_base.human_repr()} was not parsed properly! Skipped!!')
+                    continue
                 if link_base.is_absolute() and not link_base.scheme:  # boosty content <img>
                     link_base = link_base.with_scheme('https')
                 if not link_base.is_absolute() or link_base.host in APIAddress.__args__:
