@@ -63,6 +63,27 @@ class LSPostFilter(Protocol):
     def __str__(self) -> str: ...
 
 
+class UserIdFilter:
+    def __init__(self, patterns: list[str]) -> None:
+        self._patterns = [build_regex_from_pattern(_) for _ in patterns]
+        self._last_filtered = ''
+
+    def close(self) -> None:
+        self._last_filtered = ''
+
+    @abstractmethod
+    def filters_out(self, post: LSPost) -> bool:
+        user: str = post.get('post', post)['user']
+        for pattern in self._patterns:
+            if pattern.fullmatch(user.lower()):
+                self._last_filtered = user
+                return True
+        return False
+
+    def __str__(self) -> str:
+        return f'{self.__class__.__name__}<\'{self._last_filtered}\' <- {[f"-u:{_.pattern[1:-1]}" for _ in self._patterns]!s}>'
+
+
 class PostIdFilter:
     """
     Filters posts by post id
@@ -75,7 +96,7 @@ class PostIdFilter:
         self._last_filtered = ''
 
     def filters_out(self, post: LSPost) -> bool:
-        post_id = post['post']['id'] if 'post' in post else post['id']
+        post_id: str = post.get('post', post)['id']
         if post_id.isnumeric() and not self._range.min <= int(post_id) <= self._range.max:
             self._last_filtered = post_id
             return True
@@ -97,7 +118,7 @@ class PostDateFilterBase(ABC):
     def filters_out(self, post: LSPost) -> bool: ...
 
     def filters_out_by_date_type(self, post: LSPost, date_type_str: Literal['published', 'added', 'edited']) -> bool:
-        dpost = post.get('post', post)
+        dpost: SearchedPost | ListedPost = post.get('post', post)
         assert date_type_str in dpost, f'[{self!s}] Post {dpost!s} doesn\'t have required field \'{date_type_str}\'!'
         date_type_date = datetime.datetime.fromisoformat(dpost[date_type_str]).date()
         if not self._range.mindate <= date_type_date <= self._range.maxdate:
@@ -136,7 +157,7 @@ class PostTagsFilter:
 
     @abstractmethod
     def filters_out(self, post: LSPost) -> bool:
-        post_tags: list[str] = post.get('tags', [])
+        post_tags: list[str] = post.get('post', post).get('tags', [])
         if post_tags:
             for pattern in self._patterns:
                 for tag in post_tags:
@@ -146,7 +167,7 @@ class PostTagsFilter:
         return False
 
     def __str__(self) -> str:
-        return f'{self.__class__.__name__}<\'{self._last_filtered}\' <- {[f"-{_.pattern[1:-1]}" for _ in self._patterns]!s}>'
+        return f'{self.__class__.__name__}<\'{self._last_filtered}\' <- {[f"-t:{_.pattern[1:-1]}" for _ in self._patterns]!s}>'
 
 
 class PostLinkFilter(Protocol):
@@ -184,6 +205,7 @@ def any_filter_matching_ls_post(post: LSPost, filters: Iterable[LSPostFilter | N
 
 def make_lspost_filters() -> list[LSPostFilter | None]:
     filters = [
+        UserIdFilter(Config.filter_user_id) if Config.filter_user_id else None,
         PostIdFilter(Config.filter_post_ids) if Config.filter_post_ids else None,
         PostTagsFilter(Config.filter_post_tags) if Config.filter_post_tags else None,
         PostDateImportedFilter(Config.filter_post_imported) if Config.filter_post_imported else None,

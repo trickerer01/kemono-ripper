@@ -25,6 +25,7 @@ from .defs import (
     HELP_ARG_FILTER_POST_DATE_RANGE,
     HELP_ARG_FILTER_POST_ID_RANGE,
     HELP_ARG_FILTER_POST_TAGS,
+    HELP_ARG_FILTER_USER_ID,
     HELP_ARG_HEADER,
     HELP_ARG_INDENT,
     HELP_ARG_LOGGING,
@@ -252,6 +253,7 @@ def add_post_filtering_args(par: ArgumentParser, add_search_filters: bool, add_d
     if add_search_filters:
         fi.add_argument('--ids', metavar='#min-max', default=None, help=HELP_ARG_FILTER_POST_ID_RANGE, type=valid_range)
         fi.add_argument('--notag', metavar='#pattern', action=ACTION_APPEND, help=HELP_ARG_FILTER_POST_TAGS, type=valid_pattern)
+        fi.add_argument('--nouser', metavar='#pattern', action=ACTION_APPEND, help=HELP_ARG_FILTER_USER_ID, type=valid_pattern)
         fi.add_argument('--imported', metavar='#min..max', default=None, help='', type=valid_date_range)
         fi.add_argument('--published', metavar='#min..max', default=None, help=HELP_ARG_FILTER_POST_DATE_RANGE, type=valid_date_range)
     if add_download_filters:
