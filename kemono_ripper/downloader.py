@@ -460,7 +460,7 @@ class KemonoDownloader:
                     paths_mega: list[str] = [  # file/folder paths v1
                         re.search(r'(#F?![-\d\w]{8}![-\d\w]{22,})', _.string).group(1)
                         for _ in bs.find_all(text=re.compile(r'(?:^|[^/]+ )#F?![-\d\w]{8}![-\d\w]{22,}'))
-                    ]
+                    ] if check_mega_keys else []
                     mkey_idx = mpath_idx = 0
                     for bs_tag in bs_tags:
                         if bs_tag.get(tag_name) is None:
