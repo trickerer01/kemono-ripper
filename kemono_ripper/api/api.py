@@ -126,7 +126,7 @@ class Kemono:
     async def _wrap_request(self, action: APIAction, try_num: int, **kwargs) -> ClientResponse:
         assert self._session is not None
         if self._nodelay is False:
-            await RequestQueue.until_ready(action.get_url().human_repr())
+            await RequestQueue.until_ready(str(action.get_url()))
         Log.trace(f'[{try_num + 1:d}] Sending API request: {action!s}')
         response = await self._session.request(**action.as_api_request_data(), **kwargs)
         return response
@@ -141,7 +141,7 @@ class Kemono:
             try:
                 async with await self._wrap_request(action, try_num) as r:
                     if r.status == 404:
-                        Log.error(f'Got 404 for {action.get_url().human_repr()}...!')
+                        Log.error(f'Got 404 for {action.get_url()!s}...!')
                         # try_num = self._retries
                         raise RequestError(KemonoErrorCodes.ENOTFOUND)
                     r.raise_for_status()
@@ -149,10 +149,10 @@ class Kemono:
                     result = await action.process_response_content(response_content)
                     return result
             except Exception as e:
-                Log.error(f'{action.get_url().human_repr()}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
+                Log.error(f'{action.get_url()!s}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
                 if (r is None or r.status != 403) and not isinstance(e, CLIENT_CONNECTOR_ERRORS):
                     try_num += 1
-                    Log.error(f'{action.get_url().human_repr()}: error #{try_num:d}...')
+                    Log.error(f'{action.get_url()!s}: error #{try_num:d}...')
                 if r is not None and not r.closed:
                     r.close()
                 if try_num <= self._retries:
@@ -193,12 +193,12 @@ class Kemono:
                         action.post_link.status.expected_size = file_size
                         return KemonoErrorCodes.EEXISTS
                     if r.status == 404:
-                        Log.error(f'Got 404 for {action.get_url().human_repr()}...!')
+                        Log.error(f'Got 404 for {action.get_url()!s}...!')
                         # try_num = self._retries
                         raise RequestError(KemonoErrorCodes.ENOTFOUND)
                     r.raise_for_status()
                     action.post_link.status.expected_size = file_size + content_len
-                    assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url().human_repr()}! Retrying...'
+                    assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url()!s}! Retrying...'
                     action.post_link.path.parent.mkdir(parents=True, exist_ok=True)
                     start_str = f' <continuing at {file_size:d}>' if file_size else ''
                     total_str = f' / {action.post_link.status.expected_size / Mem.MB:.2f}' if file_size else ''

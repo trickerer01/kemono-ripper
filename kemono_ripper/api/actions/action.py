@@ -68,7 +68,7 @@ class APIFetchAction(APIAction):
         return URL(f'https://{self._api_address}') / APIEntrance / self._endpoint.format(*self._endpoint_params)
 
     def __str__(self) -> str:
-        return f'[{self._method}] => {self.get_url().human_repr()}'
+        return f'[{self._method}] => {self.get_url()!s}'
 
 
 class APIDownloadAction(APIAction):
@@ -105,7 +105,7 @@ class APIDownloadAction(APIAction):
         return self._post_link
 
     def __str__(self) -> str:
-        return f'[{self._method}] => {self.get_url().human_repr()}'
+        return f'[{self._method}] => {self.get_url()!s}'
 
 #
 #

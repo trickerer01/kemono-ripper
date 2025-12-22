@@ -137,11 +137,11 @@ class ExternalURLDownloader:
         try:
             assert self.valid()
             mresults = await self._handler.run(url, config) if self.valid() else []
-            Log.info(f'{plink_id} \'{self.app_name()}\' has successfully handled {self._url.human_repr()} ({len(mresults)} files)')
+            Log.info(f'{plink_id} \'{self.app_name()}\' has successfully handled {self._url!s} ({len(mresults)} files)')
             return mresults
         except Exception:
             import traceback
-            Log.error(f'{traceback.format_exc()}\n{plink_id} \'{self.app_name()}\' FAILED to handle {self._url.human_repr()}!')
+            Log.error(f'{traceback.format_exc()}\n{plink_id} \'{self.app_name()}\' FAILED to handle {self._url!s}!')
             return []
 
 
@@ -247,7 +247,7 @@ class KemonoDownloader:
                          f' {skipped:d} skipped, {filtered:d} filtered out, {exists:d} already exists, {fail_404:d} not found,'
                          f' {unsupported:d} unsupported, {external:d} handled externally')
             else:
-                links_str = '\n'.join(plink.url.human_repr() for _, plink in post.links.items())
+                links_str = '\n'.join(str(plink.url) for _, plink in post.links.items())
                 Log.info(f'[queue] post {pid}: None of {len(post.links):d} links are supported:\n{links_str}')
 
             self._downloads_active.pop(post)
@@ -273,7 +273,7 @@ class KemonoDownloader:
         await self._at_post_link_start(post, plink)
         plink_id = f'[{post.creator_id}:{post.post_id}] \'{plink.name}\''
         plink.status.state = State.SCANNING
-        url_str = plink.url.human_repr()
+        url_str = str(plink.url)
         handler_ex = ExternalURLDownloader(plink.url)
         if handler_ex.valid():
             Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
@@ -357,7 +357,7 @@ class KemonoDownloader:
             Log.fatal(f'active writes count is still at {len(self._writes_active):d} != 0!')
         if len(self._failed_items) > 0:
             fitems = ['\n'.join([f'{post.original_post["post"]["service"]}:{post.creator_id}:{post.post_id}'
-                                 f' {plink.url.human_repr()} => {plink.local_path}'
+                                 f' {plink.url!s} => {plink.local_path}'
                                  for plink in plinks]) for post, plinks in self._failed_items.items()]
             Log.fatal(f'\nFailed items:\n{newline.join(fitems)}')
 
@@ -504,7 +504,7 @@ class KemonoDownloader:
             for link_base, name in links_dict.items():
                 # check if MEGA links were properly parsed / fixed
                 if link_base.host == SITE_MEGA and len(link_base.path) + len(link_base.fragment) < 26:
-                    Log.error(f'{SITE_MEGA} link {link_base.human_repr()} was not parsed properly! Skipped!!')
+                    Log.error(f'{SITE_MEGA} link {link_base!s} was not parsed properly! Skipped!!')
                     continue
                 if link_base.is_absolute() and not link_base.scheme:  # boosty content <img>
                     link_base = link_base.with_scheme('https')
@@ -539,7 +539,7 @@ class KemonoDownloader:
 
             self._post_info[pid] = PostDownloadInfo(pid, user, user, post_tags, post_dest, spost, links, [], DownloadStatus())
 
-            links_str = '\n'.join(f' {pldi.url.human_repr()} => {pldi.local_path}' for title, pldi in links.items())
+            links_str = '\n'.join(f' {pldi.url!s} => {pldi.local_path}' for title, pldi in links.items())
             post_strings.append(f'Post [{user}:{pid}] \'{title}\': {len(links):d} links:\n{links_str}')
 
         [Log.info(_) for _ in post_strings]
