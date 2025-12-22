@@ -32,7 +32,7 @@ def ensure_max_length(base_string: str, max_len: int) -> str:
 
 
 def normalize_format_string(base_string: str, max_len: int) -> str:
-    result = sanitize_path(ensure_max_length(base_string, max_len).strip())
+    result = sanitize_path(ensure_max_length(sanitize_path(base_string.strip()), max_len).strip()).strip()
     return result
 
 
