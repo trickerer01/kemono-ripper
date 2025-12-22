@@ -88,7 +88,7 @@ class MegaURLHandler:
     @staticmethod
     async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
         async with MegaURLHandler._semaphore:
-            return await handler_mega.MegaDownloader([url.human_repr()], config).run()
+            return await handler_mega.MegaDownloader([str(url)], config).run()
 
     @staticmethod
     def name() -> str:
@@ -105,7 +105,7 @@ class MediafireURLHandler:
     @staticmethod
     async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
         async with MediafireURLHandler._semaphore:
-            return await handler_mediafire.MediafireDownloader([url.human_repr()], config).run()
+            return await handler_mediafire.MediafireDownloader([str(url)], config).run()
 
     @staticmethod
     def name() -> str:
@@ -457,7 +457,11 @@ class KemonoDownloader:
                         re.search(r'([-\d\w]{32,})', _.string).group(1)
                         for _ in bs.find_all(text=re.compile(r'(?:^|[^/]+ )[!#]?[-\d\w]{32,}'))
                     ] if check_mega_keys else []
-                    key_idx = 0
+                    paths_mega: list[str] = [  # file/folder paths v1
+                        re.search(r'(#F?![-\d\w]{8}![-\d\w]{22,})', _.string).group(1)
+                        for _ in bs.find_all(text=re.compile(r'(?:^|[^/]+ )#F?![-\d\w]{8}![-\d\w]{22,}'))
+                    ]
+                    mkey_idx = mpath_idx = 0
                     for bs_tag in bs_tags:
                         if bs_tag.get(tag_name) is None:
                             Log.warn(f'[{user}:{pid}] {title}: tag \'{tag_name}\' was not found in content element {bs_tag!s}. Skipped')
@@ -472,10 +476,15 @@ class KemonoDownloader:
                             else:
                                 link_idx += 1
                                 link_name = f'unnamed_{link_idx:02d}'
-                                if key_idx < len(keys_mega) and url.host == SITE_MEGA and not url_purged.fragment:
-                                    key = keys_mega[key_idx]
-                                    url_purged = url_purged.with_fragment(key)
-                                    key_idx += 1
+                                if url.host == SITE_MEGA and not url_purged.fragment:
+                                    if mpath_idx < len(paths_mega) and url.path == '/':
+                                        mpath = paths_mega[mpath_idx]
+                                        url_purged = url_purged.with_path(mpath, encoded=True)
+                                        mpath_idx += 1
+                                    elif mkey_idx < len(keys_mega) and len(url.path) > 4:
+                                        mkey = keys_mega[mkey_idx]
+                                        url_purged = url_purged.with_fragment(mkey)
+                                        mkey_idx += 1
                             links_dict.update({url_purged: link_name})
 
             if file := post['file']:
