@@ -112,8 +112,8 @@ class Kemono:
         else:
             connector = TCPConnector(limit=self._max_jobs)
         session = ClientSession(connector=connector, read_bufsize=Mem.MB, timeout=self._timeout)
-        session.headers.update({'User-Agent': self._user_agent, 'Content-Type': 'application/json', 'Accept': 'text/css'})
         self._user_agent = UAManager.select_useragent(self._proxy if use_proxy else None)
+        session.headers.update({'User-Agent': self._user_agent, 'Content-Type': 'application/json', 'Accept': 'text/css'})
         Log.trace(f'[{"P" if use_proxy else "NP"}] Selected user-agent \'{self._user_agent}\'...')
         if self._extra_headers:
             for hk, hv in self._extra_headers:
