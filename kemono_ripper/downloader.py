@@ -38,7 +38,18 @@ from .api import (
     State,
 )
 from .config import Config, ExternalURLHandlerConfig
-from .defs import FILE_NAME_FULL_MAX_LEN, POST_TAGS_PER_POST_INFO_DEFAULT, SITE_MEDIAFIRE, SITE_MEGA, UTF8, PathURLJSONEncoder
+from .defs import (
+    FILE_NAME_FULL_MAX_LEN,
+    POST_TAGS_PER_POST_INFO_DEFAULT,
+    SITE_CATBOX,
+    SITE_DROPBOX,
+    SITE_MEDIAFIRE,
+    SITE_MEGA,
+    SITE_WEBMSHARE,
+    UTF8,
+    PathURLJSONEncoder,
+)
+from .download_direct import DirectLinkDownloader
 from .filters import (
     LSPostFilter,
     PostLinkFilter,
@@ -80,6 +91,23 @@ class ExternalURLHandler(Protocol):
 
     @staticmethod
     def app_name() -> str: ...
+
+
+class DirectLinkHandler:
+    _semaphore: Semaphore  # unused
+
+    @staticmethod
+    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
+        async with DirectLinkDownloader([str(url)], config) as direct_downloader:
+            return await direct_downloader.run()
+
+    @staticmethod
+    def name() -> str:
+        return 'DirectLink'
+
+    @staticmethod
+    def app_name() -> str:
+        return '<direct-download>'
 
 
 class MegaURLHandler:
@@ -185,6 +213,9 @@ class KemonoDownloader:
         self._orig_count: Final[int] = self._gather_post_download_info(posts)
         self._queue_produce.extend(post for _, post in self._post_info.items())
 
+        register_external_downloader(SITE_CATBOX, DirectLinkHandler())
+        register_external_downloader(SITE_WEBMSHARE, DirectLinkHandler())
+        # register_external_downloader(SITE_DROPBOX, DirectLinkHandler())
         if handler_mega:
             register_external_downloader(SITE_MEGA, MegaURLHandler())
         if handler_mediafire:
@@ -252,6 +283,13 @@ class KemonoDownloader:
 
             self._downloads_active.pop(post)
             Log.trace(f'[queue] post {post.post_id} \'{post.original_post["post"]["title"]}\' removed from active')
+            if (num_left := len(self._downloads_active)) < Config.max_jobs - 1:
+                msgs = (
+                    f'{num_left:d} posts in queue:',
+                    *(f'[{_.creator_id}:{_.post_id}] \'{_.original_post["post"]["title"]}\'' for _ in self._downloads_active),
+                )
+                for msg in msgs:
+                    Log.debug(msg)
 
     async def _download_post(self, post: PostDownloadInfo) -> None:
         async def download_post_link_wrapper(plink) -> None:
@@ -277,7 +315,8 @@ class KemonoDownloader:
         handler_ex = ExternalURLDownloader(plink.url)
         if handler_ex.valid():
             Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
-            mresults = await handler_ex.download(plink_id, plink.url, ExternalURLHandlerConfig(Config, dest_base=plink.path))
+            handler_config = ExternalURLHandlerConfig(Config, plink.url.host, dest_base=plink.path)
+            mresults = await handler_ex.download(plink_id, plink.url, handler_config)
             succ_count = len([_.is_file() for _ in mresults])
             Log.info(f'{plink_id}: {handler_ex.app_name()} handled {url_str} with {succ_count:d} / {len(mresults):d} success')
             dresult = DownloadResult.HANDLED_EXTERNALLY
@@ -508,6 +547,8 @@ class KemonoDownloader:
                     continue
                 if link_base.is_absolute() and not link_base.scheme:  # boosty content <img>
                     link_base = link_base.with_scheme('https')
+                if self.is_supported_direct_external_link(link_base):
+                    link_base = self.normalize_external_link(link_base)
                 if not link_base.is_absolute() or link_base.host in APIAddress.__args__:
                     if link_base.path.startswith('/data'):
                         link_base = link_base.with_path(link_base.path[len('/data'):])
@@ -551,7 +592,28 @@ class KemonoDownloader:
 
     @staticmethod
     def is_link_supported(url: URL) -> bool:
-        return '.'.join(url.host.split('.')[-2:]) in APIAddress.__args__
+        if '.'.join(url.host.split('.')[-2:]) in APIAddress.__args__:
+            return True
+        return KemonoDownloader.is_supported_direct_external_link(url)
+
+    @staticmethod
+    def is_supported_direct_external_link(url: URL) -> bool:
+        if url.is_absolute():
+            if url.host == SITE_CATBOX:
+                return bool(url.suffix)
+            if url.host == SITE_WEBMSHARE:
+                return bool(url.path)
+            # if url.host == SITE_DROPBOX and url.suffix:
+            #     return True
+        return False
+
+    @staticmethod
+    def normalize_external_link(url: URL) -> URL:
+        if url.host == SITE_WEBMSHARE and 'download-webm' not in url.path:
+            return url.with_path('') / 'download-webm' / url.parts[-1]
+        if url.host == SITE_DROPBOX:
+            return url.with_query(dl=1)
+        return url
 
 #
 #

@@ -6,6 +6,8 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 #
 
+from __future__ import annotations
+
 import inspect
 import pathlib
 from typing import TypedDict
@@ -15,7 +17,7 @@ from aiohttp import ClientTimeout
 from .defs import (
     CONFIG_NAME_DEFAULT,
     CONNECT_TIMEOUT_SOCKET_READ,
-    SITE_MEGA,
+    NUM_EXTERNAL_SITES,
     DateRange,
     NumRange,
     PathFormatType,
@@ -30,6 +32,12 @@ __all__ = ('Config', 'ExternalURLHandlerConfig')
 
 class DownloaderConfig(TypedDict):
     proxy: str
+
+
+def download_config_default(config: Config) -> DownloaderConfig:
+    return DownloaderConfig(
+        proxy=config.proxy,
+    )
 
 
 class ConfigJSON(TypedDict):
@@ -47,10 +55,11 @@ class ConfigJSON(TypedDict):
     retries: int
     extra_headers: list[tuple[str, str]]
     extra_cookies: list[tuple[str, str]]
-    per_website_config: dict[SupportedExternalWebsite, DownloaderConfig]
+    per_website_config: dict[str, DownloaderConfig]
 
 
 PER_WEBSITE_CONFIG_DEFAULT = dict.fromkeys((_.value for _ in SupportedExternalWebsite.__members__.values()), DownloaderConfig(proxy=''))
+assert len(PER_WEBSITE_CONFIG_DEFAULT) == NUM_EXTERNAL_SITES
 
 
 class BaseConfig:
@@ -107,7 +116,7 @@ class BaseConfig:
         self.max_jobs: int | None = None
         self.path_format: PathFormatType | None = None
         # no args
-        self.per_website_config: dict[SupportedExternalWebsite, DownloaderConfig] = PER_WEBSITE_CONFIG_DEFAULT.copy()
+        self.per_website_config: dict[str, DownloaderConfig] = PER_WEBSITE_CONFIG_DEFAULT.copy()
         # common
         self.dest_base: pathlib.Path | None = None
         self.proxy: str | None = None
@@ -203,7 +212,7 @@ class ExternalURLHandlerConfig:
     # MEGA, Mediafire
     noconfirm: bool
 
-    def __init__(self, config: BaseConfig, **overrides) -> None:
+    def __init__(self, config: BaseConfig, host: str, **overrides) -> None:
         self.dump_links: bool | None = False
         self.dump_structure: bool | None = False
         self.links_file: pathlib.Path | None = None
@@ -213,7 +222,7 @@ class ExternalURLHandlerConfig:
         self.links: list[str] | None = overrides.pop('links', config.links)
         self.max_jobs: int | None = overrides.pop('max_jobs', config.max_jobs)
         self.dest_base: pathlib.Path | None = overrides.pop('dest_base', config.dest_base)
-        self.proxy: str | None = overrides.pop('proxy', config.per_website_config.get(SITE_MEGA, {'proxy': config.proxy}).get('proxy'))
+        self.proxy: str | None = overrides.pop('proxy', config.per_website_config.get(host, download_config_default(config))['proxy'])
         self.download_mode: str | None = overrides.pop('download_mode', config.download_mode)
         self.logging_flags: int = overrides.pop('logging_flags', config.logging_flags)
         self.nocolors: bool | None = overrides.pop('nocolors', config.disable_log_colors)

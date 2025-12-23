@@ -5,6 +5,8 @@
 - Automatically parses posts for external links and downloads everything. Supported sites:
   - [mega.nz](https://mega.nz) (using [mega-download](https://github.com/trickerer01/mega-download/))
   - [mediafire.com](https://mediafire.com) (using [mediafire-download](https://github.com/trickerer01/mediafire-download/))
+  - [webmshare.com](https://webmshare.com)
+  - [catbox.moe](https://catbox.moe)
   - Site support requests go to [issues](https://github.com/trickerer01/kemono-ripper/issues)
 
 ### Requirements

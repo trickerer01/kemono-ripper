@@ -34,6 +34,10 @@ FILE_NAME_FULL_MAX_LEN = 220
 
 SITE_MEGA = 'mega.nz'
 SITE_MEDIAFIRE = 'www.mediafire.com'
+SITE_CATBOX = 'files.catbox.moe'
+SITE_WEBMSHARE = 'webmshare.com'
+SITE_DROPBOX = 'dropbox.com'
+NUM_EXTERNAL_SITES = 5
 
 CONNECT_RETRIES_BASE = 50
 CONNECT_TIMEOUT_BASE = 10
@@ -59,6 +63,9 @@ PathFormatType: TypeAlias = Literal[
 class SupportedExternalWebsite(str, Enum):
     MegaNz = SITE_MEGA
     Mediafire = SITE_MEDIAFIRE
+    Catbox = SITE_CATBOX
+    WebmShare = SITE_WEBMSHARE
+    Dropbox = SITE_DROPBOX
 
 
 class LoggingFlags(IntEnum):
