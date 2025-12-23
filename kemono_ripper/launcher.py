@@ -29,11 +29,11 @@ from .validators import valid_post_url
 
 
 def _need_convert_to_scan_result(post: ListedPost | SearchedPost):
-    return 'added' not in post or ('tags' not in post and Config.filter_post_tags)
+    return 'added' not in post or Config.filter_post_imported or ('tags' not in post and Config.filter_post_tags)
 
 
 async def _process_list_search_results(kemono: Kemono, results: MutableSequence[ListedPost] | Sequence[SearchedPost]):
-    if Config.filter_post_imported and results and _need_convert_to_scan_result(results[0]):
+    if results and _need_convert_to_scan_result(results[0]):
         Log.warn(f'Warning: post import date filter detected for listed post, will scan {len(results):d} posts for missing info...')
         links = [PostPageScanResult(_['id'], _['user'], _['service'], kemono.api_address) for _ in results]
         sresults = await kemono.scan_posts(links)
@@ -49,10 +49,10 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
         service = lpost['service']
         title = lpost['title']
         lspost: SearchedPost = SearchedPost(**lpost)  # silence linter
-        tags: list[str] = lspost.get('tags', [])
+        tags: list[str] = lspost.get('tags') or []
         if spfilter := any_filter_matching_ls_post(lpost, filters):
             filtered[spfilter] += 1
-            Log.debug(f'[{user}:{pid}] {title}: post was filtered out by {spfilter!s}...')
+            Log.debug(f'[{user}:{pid}] {title}: post was filtered out by {spfilter!s}! Tags were: {tags!s}')
             continue
         url = f'https://{kemono.api_address}/{service}/user/{user}/post/{pid}'
         msg = (f'{url} \'{lpost["title"]}\', file: \'{lpost["file"]["name"] if lpost["file"] else "None"}\','
