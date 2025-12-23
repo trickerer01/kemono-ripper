@@ -270,6 +270,7 @@ async def _config_write(config_path: pathlib.Path, *, use_backup=False) -> None:
         else:
             with open(config_path, 'wt', encoding=UTF8, newline='\n') as outfine_config:
                 json.dump(Config.to_json(), outfine_config, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
+                outfine_config.write('\n')
         Log.info('Done')
     except Exception:
         Log.error(f'Failed to write to {config_path.as_posix()}!')
