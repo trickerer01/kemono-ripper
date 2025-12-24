@@ -203,7 +203,7 @@ class DirectLinkDownloader:
     def is_range_supported(url: URL) -> bool:
         return url.host in (
             SupportedExternalWebsites.Catbox,
-            SupportedExternalWebsites.WebmShare
+            SupportedExternalWebsites.WebmShare,
         )
 
     async def run(self) -> list[pathlib.Path]:

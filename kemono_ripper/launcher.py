@@ -37,8 +37,8 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
         Log.warn(f'Warning: post import date filter detected for listed post, will scan {len(results):d} posts for missing info...')
         links = [PostPageScanResult(_['id'], _['user'], _['service'], kemono.api_address) for _ in results]
         sresults = await kemono.scan_posts(links)
+        Log.info(f'Received {len(sresults)} results. Continuing...')
         results[:] = [_['post'] for _ in sresults]
-        Log.info(f'Received {len(results)} results. Continuing...')
 
     filters = make_lspost_filters()
     filtered = dict.fromkeys(filters, 0)
