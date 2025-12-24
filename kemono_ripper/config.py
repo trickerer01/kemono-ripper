@@ -21,7 +21,7 @@ from .defs import (
     DateRange,
     NumRange,
     PathFormatType,
-    SupportedExternalWebsite,
+    SupportedExternalWebsites,
 )
 
 if False is True:  # for hinting only
@@ -58,7 +58,7 @@ class ConfigJSON(TypedDict):
     per_website_config: dict[str, DownloaderConfig]
 
 
-PER_WEBSITE_CONFIG_DEFAULT = dict.fromkeys((_.value for _ in SupportedExternalWebsite.__members__.values()), DownloaderConfig(proxy=''))
+PER_WEBSITE_CONFIG_DEFAULT = dict.fromkeys((_.value for _ in SupportedExternalWebsites.__members__.values()), DownloaderConfig(proxy=''))
 assert len(PER_WEBSITE_CONFIG_DEFAULT) == NUM_EXTERNAL_SITES
 
 

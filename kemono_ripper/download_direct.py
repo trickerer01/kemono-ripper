@@ -21,6 +21,7 @@ from yarl import URL
 
 from .api import DownloadMode, Mem, RequestQueue
 from .config import ExternalURLHandlerConfig
+from .defs import SupportedExternalWebsites
 from .logger import Log
 from .util import UAManager
 
@@ -152,6 +153,41 @@ class DirectLinkDownloader:
 
         Log.error(f'Unable to connect. Aborting {local_path}')
         return pathlib.Path()
+
+    @staticmethod
+    def is_link_supported(url: URL) -> bool:
+        if url.is_absolute():
+            if url.host == SupportedExternalWebsites.Catbox:
+                return bool(url.suffix)
+            if url.host == SupportedExternalWebsites.WebmShare:
+                return bool(url.path)
+            if url.host == SupportedExternalWebsites.Dropbox and url.suffix:
+                return DirectLinkDownloader.validate_link(url, SupportedExternalWebsites.Dropbox)
+        return False
+
+    @staticmethod
+    def validate_link(url: URL, link_type: SupportedExternalWebsites) -> bool:
+        if link_type == SupportedExternalWebsites.Dropbox and url.suffix:
+            # files
+            # https://www.dropbox.com/s/gb756mu7jo7xmin/watermarkless_1080p_Tyrandecave.mp4?dl=0
+            # https://www.dropbox.com/scl/fi/sqq3i9u58bham2x6u1tuf/alyriri-4k.mp4?rlkey=4nf7qcogy2hoa6tk1qzx7ah0h&amp;dl=0
+            # folders
+            # https://www.dropbox.com/sh/jw7h5os85dz3l3j/AAAZDecRiNm-i16MVxvK0dhva
+            # https://www.dropbox.com/scl/fo/1oldhcdmrh9hg069yzf92/h?rlkey=03by8p7w1hls7svvwhvm8lgee
+            if 'scl' in url.parts:
+                return 'rlkey' in url.query
+            return True
+        return False
+
+    @staticmethod
+    def normalize_link(url: URL) -> URL:
+        if url.host == SupportedExternalWebsites.WebmShare:
+            if 'download-webm' not in url.path:
+                return url.with_path('') / 'download-webm' / url.parts[-1]
+        if url.host == SupportedExternalWebsites.Dropbox:
+            if (url.query.get('dl') or '0') == '0':
+                return url.extend_query(dl=1)
+        return url
 
     async def run(self) -> list[pathlib.Path]:
         tasks = []

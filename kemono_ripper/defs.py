@@ -37,7 +37,7 @@ SITE_MEGA = 'mega.nz'
 SITE_MEDIAFIRE = 'www.mediafire.com'
 SITE_CATBOX = 'files.catbox.moe'
 SITE_WEBMSHARE = 'webmshare.com'
-SITE_DROPBOX = 'dropbox.com'
+SITE_DROPBOX = 'www.dropbox.com'
 NUM_EXTERNAL_SITES = 5
 
 CONNECT_RETRIES_BASE = 50
@@ -61,8 +61,8 @@ PathFormatType: TypeAlias = Literal[
 ]
 
 
-class SupportedExternalWebsite(str, Enum):
-    MegaNz = SITE_MEGA
+class SupportedExternalWebsites(str, Enum):
+    Mega = SITE_MEGA
     Mediafire = SITE_MEDIAFIRE
     Catbox = SITE_CATBOX
     WebmShare = SITE_WEBMSHARE

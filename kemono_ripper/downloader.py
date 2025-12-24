@@ -42,13 +42,9 @@ from .defs import (
     FILE_NAME_FULL_MAX_LEN,
     POST_DONE_FILE_NAME_DEFAULT,
     POST_TAGS_PER_POST_INFO_NAME_DEFAULT,
-    SITE_CATBOX,
-    SITE_DROPBOX,
-    SITE_MEDIAFIRE,
-    SITE_MEGA,
-    SITE_WEBMSHARE,
     UTF8,
     PathURLJSONEncoder,
+    SupportedExternalWebsites,
 )
 from .download_direct import DirectLinkDownloader
 from .filters import (
@@ -174,7 +170,7 @@ class ExternalURLDownloader:
             return []
 
 
-def register_external_downloader(host: str, handler: ExternalURLHandler) -> None:
+def register_external_downloader(host: SupportedExternalWebsites, handler: ExternalURLHandler) -> None:
     EXTERNAL_URL_HANDLERS[host] = handler
 
 
@@ -214,13 +210,13 @@ class KemonoDownloader:
         self._orig_count: Final[int] = self._gather_post_download_info(posts)
         self._queue_produce.extend(post for _, post in self._post_info.items())
 
-        register_external_downloader(SITE_CATBOX, DirectLinkHandler())
-        register_external_downloader(SITE_WEBMSHARE, DirectLinkHandler())
-        # register_external_downloader(SITE_DROPBOX, DirectLinkHandler())
+        register_external_downloader(SupportedExternalWebsites.Catbox, DirectLinkHandler())
+        register_external_downloader(SupportedExternalWebsites.WebmShare, DirectLinkHandler())
+        register_external_downloader(SupportedExternalWebsites.Dropbox, DirectLinkHandler())
         if handler_mega:
-            register_external_downloader(SITE_MEGA, MegaURLHandler())
+            register_external_downloader(SupportedExternalWebsites.Mega, MegaURLHandler())
         if handler_mediafire:
-            register_external_downloader(SITE_MEDIAFIRE, MediafireURLHandler())
+            register_external_downloader(SupportedExternalWebsites.Mediafire, MediafireURLHandler())
 
     async def __aenter__(self) -> KemonoDownloader:
         return self
@@ -511,25 +507,25 @@ class KemonoDownloader:
                             Log.warn(f'[{user}:{pid}] {title}: tag \'{tag_name}\' was not found in content element {bs_tag!s}. Skipped')
                             continue
                         url = URL(bs_tag[tag_name])
-                        url_purged = url.with_query('')
-                        if url_purged not in links_dict:
+                        if url not in links_dict:
                             if not url.is_absolute():
+                                url_purged = url.with_query('')
                                 link_name = f'unnamed_{link_idx:02d}' if url == url_purged else self.extract_link_name(url)
-                            elif self.is_link_supported(url_purged):
+                            elif self.is_link_supported(url):
                                 link_name = self.extract_link_name(url)
                             else:
                                 link_idx += 1
                                 link_name = f'unnamed_{link_idx:02d}'
-                                if url.host == SITE_MEGA and not url_purged.fragment:
+                                if url.host == SupportedExternalWebsites.Mega and not url.fragment:
                                     if mpath_idx < len(paths_mega) and url.path == '/':
                                         mpath = paths_mega[mpath_idx]
-                                        url_purged = url_purged.with_path(mpath, encoded=True)
+                                        url = url.with_path(mpath, encoded=True)
                                         mpath_idx += 1
                                     elif mkey_idx < len(keys_mega) and len(url.path) > 4:
                                         mkey = keys_mega[mkey_idx]
-                                        url_purged = url_purged.with_fragment(mkey)
+                                        url = url.with_fragment(mkey)
                                         mkey_idx += 1
-                            links_dict.update({url_purged: link_name})
+                            links_dict.update({url: link_name})
 
             if file := post['file']:
                 furl = URL(file['path'])
@@ -547,13 +543,13 @@ class KemonoDownloader:
             links: dict[str, PostLinkDownloadInfo] = {}
             for link_base, name in links_dict.items():
                 # check if MEGA links were properly parsed / fixed
-                if link_base.host == SITE_MEGA and len(link_base.path) + len(link_base.fragment) < 26:
-                    Log.error(f'{SITE_MEGA} link {link_base!s} was not parsed properly! Skipped!!')
+                if link_base.host == SupportedExternalWebsites.Mega and len(link_base.path) + len(link_base.fragment) < 26:
+                    Log.error(f'{SupportedExternalWebsites.Mega} link {link_base!s} was not parsed properly! Skipped!!')
                     continue
                 if link_base.is_absolute() and not link_base.scheme:  # boosty content <img>
                     link_base = link_base.with_scheme('https')
-                if self.is_supported_direct_external_link(link_base):
-                    link_base = self.normalize_external_link(link_base)
+                if DirectLinkDownloader.is_link_supported(link_base):
+                    link_base = DirectLinkDownloader.normalize_link(link_base)
                 if not link_base.is_absolute() or link_base.host in APIAddress.__args__:
                     if link_base.path.startswith('/data'):
                         link_base = link_base.with_path(link_base.path[len('/data'):])
@@ -601,26 +597,7 @@ class KemonoDownloader:
     def is_link_supported(url: URL) -> bool:
         if '.'.join(url.host.split('.')[-2:]) in APIAddress.__args__:
             return True
-        return KemonoDownloader.is_supported_direct_external_link(url)
-
-    @staticmethod
-    def is_supported_direct_external_link(url: URL) -> bool:
-        if url.is_absolute():
-            if url.host == SITE_CATBOX:
-                return bool(url.suffix)
-            if url.host == SITE_WEBMSHARE:
-                return bool(url.path)
-            # if url.host == SITE_DROPBOX and url.suffix:
-            #     return True
-        return False
-
-    @staticmethod
-    def normalize_external_link(url: URL) -> URL:
-        if url.host == SITE_WEBMSHARE and 'download-webm' not in url.path:
-            return url.with_path('') / 'download-webm' / url.parts[-1]
-        if url.host == SITE_DROPBOX:
-            return url.with_query(dl=1)
-        return url
+        return DirectLinkDownloader.is_link_supported(url)
 
 #
 #
