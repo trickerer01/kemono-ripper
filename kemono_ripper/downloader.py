@@ -392,7 +392,7 @@ class KemonoDownloader:
         not_found_count = sum(self._404_count.values())
         external_count = sum(self._external_count.values())
         unsupported_count = sum(self._unsupported_count.values())
-        Log.info(f'\nDone. {downloaded_count:d} / {self._orig_count:d} post links downloaded, '
+        Log.info(f'\nDone. {len(self._post_info):d} posts: {downloaded_count:d} / {self._orig_count:d} post links downloaded, '
                  f'{already_exist_count:d} already existed, {skipped_count:d} skipped, {not_found_count:d} not found, '
                  f'{unsupported_count:d} unsupported, {external_count:d} handled externally')
         if len(self._queue_produce) > 0:
