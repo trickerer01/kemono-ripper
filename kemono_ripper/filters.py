@@ -120,7 +120,10 @@ class PostDateFilterBase(ABC):
     def filters_out_by_date_type(self, post: LSPost, date_type_str: Literal['published', 'added', 'edited']) -> bool:
         dpost: SearchedPost | ListedPost = post.get('post', post)
         assert date_type_str in dpost, f'[{self!s}] Post {dpost!s} doesn\'t have required field \'{date_type_str}\'!'
-        date_type_date = datetime.datetime.fromisoformat(dpost[date_type_str]).date()
+        try:
+            date_type_date = datetime.datetime.fromisoformat(dpost[date_type_str]).date()
+        except TypeError:
+            return False
         if not self._range.mindate <= date_type_date <= self._range.maxdate:
             self._last_filtered = date_type_date.strftime(FMT_DATE)
             return True
