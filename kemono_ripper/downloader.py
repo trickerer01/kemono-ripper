@@ -507,6 +507,9 @@ class KemonoDownloader:
                             Log.warn(f'[{user}:{pid}] {title}: tag \'{tag_name}\' was not found in content element {bs_tag!s}. Skipped')
                             continue
                         url = URL(bs_tag[tag_name])
+                        if '/' not in str(url):
+                            Log.warn(f'[{user}:{pid}] {title}: found tag \'{tag_name}\' with no address: {bs_tag!s}. Skipped')
+                            continue
                         if url not in links_dict:
                             if not url.is_absolute():
                                 url_purged = url.with_query('')
