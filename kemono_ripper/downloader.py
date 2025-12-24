@@ -494,8 +494,8 @@ class KemonoDownloader:
                     bs_tags = bs.find_all(tag_type)
                     check_mega_keys = tag_type == 'a'
                     keys_mega: list[str] = [
-                        re.search(r'([-\d\w]{32,})', _.string).group(1)
-                        for _ in bs.find_all(text=re.compile(r'(?:^|[^/]+ )[!#]?[-\d\w]{32,}')) if '----' not in _
+                        re.search(r'([-\d\w]{22,})', _.string).group(1)
+                        for _ in bs.find_all(text=re.compile(r'(?:^|[^/]+ )[!#]?[-\d\w]{22,}')) if not any(s * 4 in _ for s in '-_')
                     ] if check_mega_keys else []
                     paths_mega: list[str] = [  # file/folder paths v1
                         re.search(r'(#F?![-\d\w]{8}![-\d\w]{22,})', _.string).group(1)
