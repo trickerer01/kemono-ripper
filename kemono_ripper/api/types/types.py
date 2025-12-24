@@ -106,7 +106,7 @@ class ScannedPostPost(TypedDict):
     content: str
     embed: ScannedPostPostEmbed
     shared_file: bool
-    added: str  # 'imported'
+    added: str | None  # 'imported'
     published: str
     edited: str | None
     file: ScannedPostPostFile

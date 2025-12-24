@@ -40,7 +40,8 @@ from .api import (
 from .config import Config, ExternalURLHandlerConfig
 from .defs import (
     FILE_NAME_FULL_MAX_LEN,
-    POST_TAGS_PER_POST_INFO_DEFAULT,
+    POST_DONE_FILE_NAME_DEFAULT,
+    POST_TAGS_PER_POST_INFO_NAME_DEFAULT,
     SITE_CATBOX,
     SITE_DROPBOX,
     SITE_MEDIAFIRE,
@@ -282,8 +283,12 @@ class KemonoDownloader:
                 Log.info(f'[queue] post {pid}: None of {len(post.links):d} links are supported:\n{links_str}')
 
             self._downloads_active.pop(post)
+            assert post.dest.is_dir()
+            with open(post.dest / POST_DONE_FILE_NAME_DEFAULT, 'ab'):
+                pass
+
             Log.trace(f'[queue] post {post.post_id} \'{post.original_post["post"]["title"]}\' removed from active')
-            if (num_left := len(self._downloads_active)) < Config.max_jobs - 1:
+            if (num_left := len(self._downloads_active)) < Config.max_jobs - 1 and len(self._queue_produce) == 0:
                 msgs = (
                     f'{num_left:d} posts in queue:',
                     *(f'[{_.creator_id}:{_.post_id}] \'{_.original_post["post"]["title"]}\'' for _ in self._downloads_active),
@@ -298,9 +303,9 @@ class KemonoDownloader:
 
         post.status.state = State.DOWNLOADING
 
-        Log.trace(f'[{post.creator_id}:{post.post_id}] Saving info to {post.local_path}/{POST_TAGS_PER_POST_INFO_DEFAULT}')
+        Log.trace(f'[{post.creator_id}:{post.post_id}] Saving info to {post.local_path}/{POST_TAGS_PER_POST_INFO_NAME_DEFAULT}')
         post.dest.mkdir(parents=True, exist_ok=True)
-        with open(post.dest / POST_TAGS_PER_POST_INFO_DEFAULT, 'wt', encoding=UTF8, newline='\n', errors='replace') as outfile_tags:
+        with open(post.dest / POST_TAGS_PER_POST_INFO_NAME_DEFAULT, 'wt', encoding=UTF8, newline='\n', errors='replace') as outfile_tags:
             json.dump(post, outfile_tags, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
             outfile_tags.write('\n')
 
