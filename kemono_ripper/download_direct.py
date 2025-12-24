@@ -97,11 +97,16 @@ class DirectLinkDownloader:
                         dpath = pathlib.Path(dir_entry.path)
                         if dpath.with_suffix('').name == output_path.name:
                             output_path = dpath
-                            local_path_old = local_path
                             local_path = '/'.join(('...', *output_path.parts[-3:]))
                             Log.warn(f'[DirectDownload] File at {url!s} has no extension. Storing to a similarly named file found:'
-                                     f' \'{local_path_old}\' -> \'{local_path}\'')
+                                     f' \'{output_path.with_suffix("").name}\' -> \'{output_path.name}\'')
                             break
+
+        if output_path.suffix:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            if self._download_mode == DownloadMode.TOUCH:
+                output_path.touch(exist_ok=True)
+                return output_path
 
         try_num = 0
         bytes_written = 0
@@ -115,8 +120,12 @@ class DirectLinkDownloader:
                         content_type = r.content_type
                         if content_type.startswith(('video/', 'image/')):
                             suffix = f'.{content_type[content_type.find("/") + 1:]}'
-                            output_path = output_path.with_suffix(suffix)
-                            local_path = f'{local_path}{suffix}'
+                        elif content_type in ('application/zip',):
+                            suffix = '.zip'
+                        else:
+                            suffix = '.bin'
+                        output_path = output_path.with_suffix(suffix)
+                        local_path = f'{local_path}{suffix}'
                     content_len: int = r.content_length or 0
                     content_range_s = str(r.headers.get('Content-Range', '/')).split('/', 1)
                     content_range = int(content_range_s[1]) if len(content_range_s) > 1 and content_range_s[1].isnumeric() else 1
@@ -128,12 +137,20 @@ class DirectLinkDownloader:
                         raise FileNotFoundError
                     r.raise_for_status()
                     assert content_len > 0, f'Content length is {r.content_length!s} for {url!s}! Retrying...'
+                    if file_size and not self.is_range_supported(url):
+                        size_match_msg = f'({"COMPLETE" if file_size == content_len else "MISMATCH!"})'
+                        exists_msg = f'{local_path} already exists, size: {file_size / Mem.MB:.2f} MB {size_match_msg}'
+                        Log.info(f'[DirectDownload] {exists_msg}')
+                        Log.warn(f'[DirectDownload] Overwriting {output_path.name}...')
                     output_path.parent.mkdir(parents=True, exist_ok=True)
-                    start_str = f' <continuing at {file_size:d}>' if file_size else ''
-                    total_str = f' / {(file_size + content_len) / Mem.MB:.2f}' if file_size else ''
+                    if self._download_mode == DownloadMode.TOUCH:
+                        output_path.touch(exist_ok=True)
+                        return output_path
+                    start_str = f' <continuing at {file_size:d}>' if file_size and self.is_range_supported(url) else ''
+                    total_str = f' / {(file_size + content_len) / Mem.MB:.2f}' if file_size and self.is_range_supported(url) else ''
                     Log.info(f'[DirectDownload] Saving{start_str} {url.name}'
                              f' {content_len / Mem.MB:.2f}{total_str} Mb to {local_path}')
-                    async with async_open(output_path, 'ab') as output_file:
+                    async with async_open(output_path, 'ab' if self.is_range_supported(url) else 'wb') as output_file:
                         if content_len > 16 * Mem.KB:
                             try_num = 0  # reset try count if we can still download
                         async for chunk in r.content.iter_chunked(128 * Mem.KB):
@@ -161,13 +178,13 @@ class DirectLinkDownloader:
                 return bool(url.suffix)
             if url.host == SupportedExternalWebsites.WebmShare:
                 return bool(url.path)
-            if url.host == SupportedExternalWebsites.Dropbox and url.suffix:
+            if url.host == SupportedExternalWebsites.Dropbox:
                 return DirectLinkDownloader.validate_link(url, SupportedExternalWebsites.Dropbox)
         return False
 
     @staticmethod
     def validate_link(url: URL, link_type: SupportedExternalWebsites) -> bool:
-        if link_type == SupportedExternalWebsites.Dropbox and url.suffix:
+        if link_type == SupportedExternalWebsites.Dropbox:
             if 'scl' in url.parts:
                 return 'rlkey' in url.query
             return True
@@ -179,9 +196,15 @@ class DirectLinkDownloader:
             if 'download-webm' not in url.path:
                 return url.with_path('') / 'download-webm' / url.parts[-1]
         if url.host == SupportedExternalWebsites.Dropbox:
-            if (url.query.get('dl') or '0') == '0':
-                return url.extend_query(dl=1)
+            return url.update_query(dl=1)
         return url
+
+    @staticmethod
+    def is_range_supported(url: URL) -> bool:
+        return url.host in (
+            SupportedExternalWebsites.Catbox,
+            SupportedExternalWebsites.WebmShare
+        )
 
     async def run(self) -> list[pathlib.Path]:
         tasks = []
