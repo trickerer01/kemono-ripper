@@ -168,12 +168,6 @@ class DirectLinkDownloader:
     @staticmethod
     def validate_link(url: URL, link_type: SupportedExternalWebsites) -> bool:
         if link_type == SupportedExternalWebsites.Dropbox and url.suffix:
-            # files
-            # https://www.dropbox.com/s/gb756mu7jo7xmin/watermarkless_1080p_Tyrandecave.mp4?dl=0
-            # https://www.dropbox.com/scl/fi/sqq3i9u58bham2x6u1tuf/alyriri-4k.mp4?rlkey=4nf7qcogy2hoa6tk1qzx7ah0h&amp;dl=0
-            # folders
-            # https://www.dropbox.com/sh/jw7h5os85dz3l3j/AAAZDecRiNm-i16MVxvK0dhva
-            # https://www.dropbox.com/scl/fo/1oldhcdmrh9hg069yzf92/h?rlkey=03by8p7w1hls7svvwhvm8lgee
             if 'scl' in url.parts:
                 return 'rlkey' in url.query
             return True
