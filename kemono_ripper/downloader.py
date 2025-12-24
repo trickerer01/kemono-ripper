@@ -510,6 +510,8 @@ class KemonoDownloader:
                         if '/' not in str(url):
                             Log.warn(f'[{user}:{pid}] {title}: found tag \'{tag_name}\' with no address: {bs_tag!s}. Skipped')
                             continue
+                        if (not url.is_absolute() or url.host in APIAddress.__args__) and url.path.startswith('/data'):
+                            url = url.with_path(url.path[len('/data'):])
                         if url not in links_dict:
                             if not url.is_absolute():
                                 url_purged = url.with_query('')
@@ -554,8 +556,6 @@ class KemonoDownloader:
                 if DirectLinkDownloader.is_link_supported(link_base):
                     link_base = DirectLinkDownloader.normalize_link(link_base)
                 if not link_base.is_absolute() or link_base.host in APIAddress.__args__:
-                    if link_base.path.startswith('/data'):
-                        link_base = link_base.with_path(link_base.path[len('/data'):])
                     link_full = next_api_address().with_path(f'data{link_base.path}')
                 else:
                     if Config.no_external_links:
