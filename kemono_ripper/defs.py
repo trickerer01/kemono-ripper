@@ -55,6 +55,8 @@ class PathTokens(str, Enum):
     PostId = '{post_id}'
     Creator = '{creator_id}'
     Title = '{post_title}'
+    Imported = '{import_date}'
+    Published = '{publish_date}'
 
 
 PATH_FORMAT_TOKENS = tuple[str, ...](_.value for _ in PathTokens.__members__.values())
