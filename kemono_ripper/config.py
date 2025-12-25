@@ -15,12 +15,12 @@ from typing import TypedDict
 from aiohttp import ClientTimeout
 
 from .defs import (
+    COMMENT_PATH_FORMAT,
     CONFIG_NAME_DEFAULT,
     CONNECT_TIMEOUT_SOCKET_READ,
     NUM_EXTERNAL_SITES,
     DateRange,
     NumRange,
-    PathFormatType,
     SupportedExternalWebsites,
 )
 
@@ -46,6 +46,7 @@ class ConfigJSON(TypedDict):
     skip_cache: bool
     max_jobs: int
     dest_base: pathlib.Path
+    _path_format_comment: str
     path_format: str
     proxy: str
     logging_flags: int
@@ -114,7 +115,7 @@ class BaseConfig:
         self.filter_user_id: list[str] | None = None
         self.src_file: pathlib.Path | None = None
         self.max_jobs: int | None = None
-        self.path_format: PathFormatType | None = None
+        self.path_format: str | None = None
         # no args
         self.per_website_config: dict[str, DownloaderConfig] = PER_WEBSITE_CONFIG_DEFAULT.copy()
         # common
@@ -145,6 +146,7 @@ class BaseConfig:
             skip_cache=self.skip_cache,
             max_jobs=self.max_jobs,
             dest_base=self.dest_base,
+            _path_format_comment=COMMENT_PATH_FORMAT,
             path_format=self.path_format,
             proxy=self.proxy,
             logging_flags=self.logging_flags,
@@ -158,8 +160,13 @@ class BaseConfig:
         )
 
     def from_json(self, json_: ConfigJSON) -> None:
-        assert all(_ in json_ for _ in inspect.get_annotations(ConfigJSON).keys().mapping)
+        for param in inspect.get_annotations(ConfigJSON).keys().mapping:
+            if param.endswith('_comment'):
+                continue
+            assert param in json_, f'Missing config param: {param}!'
         for k, v in json_.items():
+            if k.endswith('_comment'):
+                continue
             if k == 'dest_base':
                 v = pathlib.Path(v)
             elif k == 'timeout':

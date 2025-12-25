@@ -19,6 +19,7 @@ from .defs import CONFIG_NAME_DEFAULT, MIN_PYTHON_VERSION, MIN_PYTHON_VERSION_ST
 from .filters import FileNameFilter, FileSizeFilter
 from .launcher import launch
 from .logger import Log
+from .validators import valid_path_format
 from .version import APP_NAME, APP_VERSION
 
 __all__ = ('main_async', 'main_sync')
@@ -48,6 +49,12 @@ def autopick_config() -> None:
         with open(base_config_path, 'rt', encoding=UTF8) as in_file:
             Log.debug(f'Using base configuration file {base_config_path.as_posix()}')
             Config.from_json(json.load(in_file))
+        for arg, validator in zip(('path_format',), (valid_path_format,), strict=True):
+            value = getattr(Config, arg, None)
+            try:
+                assert validator(value)
+            except Exception:
+                raise ValueError(f'Invalid config \'{arg}\' value \'{value!s}\' (with <{validator.__name__.replace("valid_", "")}()>)')
     except OSError:
         if not (len(sys.argv) >= 3 and ' '.join(sys.argv[1:3]) == 'config create'):
             Log.warn(f'Warning: config file \'{CONFIG_NAME_DEFAULT}\' is not found in \'{base_config_path.parent.as_posix()}\'!'

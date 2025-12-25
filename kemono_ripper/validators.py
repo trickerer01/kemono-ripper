@@ -22,14 +22,15 @@ from .defs import (
     FMT_DATE,
     LOGGING_FLAGS,
     MAX_JOBS_MAX,
+    PATH_FORMAT_TOKENS,
     DateRange,
     NumRange,
-    PathFormatType,
 )
 from .logger import Log
-from .util import build_regex_from_pattern
+from .util import build_regex_from_pattern, sanitize_path
 
 re_post_page = re.compile(fr'({"|".join(APIAddress.__args__)})/({"|".join(APIService.__args__)})(?:/user/([-\w]+))?/post/([-\w]+)')
+re_format_token = re.compile(fr'({"|".join(t for t in PATH_FORMAT_TOKENS)})')
 re_ext = re.compile(r'^\.\w{2,5}$')
 
 
@@ -83,7 +84,14 @@ def valid_file_path(pathstr: str) -> pathlib.Path:
 
 def valid_path_format(format_str: str) -> str:
     try:
-        assert format_str in PathFormatType.__args__
+        assert not any(_ in format_str for _ in (' /',))
+        assert not any(format_str.startswith(_) for _ in (' ',))
+        assert not any(format_str.endswith(_) for _ in (' ',))
+        tokens: list[str] = re_format_token.findall(format_str)
+        assert tokens
+        assert all(token in PATH_FORMAT_TOKENS for token in tokens)
+        unbraced = format_str.replace('{', '').replace('}', '').replace('/', '_')
+        assert sanitize_path(unbraced) == unbraced
         return format_str
     except Exception:
         raise ArgumentError

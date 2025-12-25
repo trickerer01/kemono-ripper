@@ -10,17 +10,14 @@ import datetime
 import json
 import pathlib
 from enum import Enum, IntEnum
-from typing import Literal, NamedTuple, TypeAlias
-
-from yarl import URL
+from typing import Any, NamedTuple
 
 
 class PathURLJSONEncoder(json.JSONEncoder):
-    def default(self, o: pathlib.Path | URL) -> str:
+    def default(self, o: Any) -> str:
         if isinstance(o, pathlib.PurePath):
             return o.as_posix()
-        elif isinstance(o, URL):
-            return str(o)
+        return str(o)
 
 
 MIN_PYTHON_VERSION = (3, 10)
@@ -53,12 +50,16 @@ UTF8 = 'utf-8'
 JSON_INDENT_DEFAULT = 4
 FMT_DATE = '%Y-%m-%d'
 
-PathFormatType: TypeAlias = Literal[
-    '{creator_id}/{post_id}',
-    '{creator_id} - {post_id}',
-    '{creator_id} - {post_title} ({post_id})',
-    '{creator_id} - {post_id} - {post_title}',
-]
+
+class PathTokens(str, Enum):
+    PostId = '{post_id}'
+    Creator = '{creator_id}'
+    Title = '{post_title}'
+
+
+PATH_FORMAT_TOKENS = tuple[str, ...](_.value for _ in PathTokens.__members__.values())
+PATH_FORMAT_DEFAULT = f'{PathTokens.Creator.value!s} - {PathTokens.PostId.value!s}'
+'''{creator_id} - {post_id}'''
 
 
 class SupportedExternalWebsites(str, Enum):
@@ -99,9 +100,11 @@ LOGGING_FLAGS_DEFAULT = LoggingFlags.INFO
 ACTION_STORE_TRUE = 'store_true'
 ACTION_APPEND = 'append'
 
+COMMENT_PATH_FORMAT = f'Possible format tokens: {", ".join(PATH_FORMAT_TOKENS)}'
+
 HELP_ARG_VERSION = 'Show program\'s version number and exit'
 HELP_ARG_PATH = 'Download destination. Default is current folder'
-HELP_ARG_PATH_FORMAT = f'Saved post subfolder name format. Possible formats: [{",".join(PathFormatType.__args__)}]'
+HELP_ARG_PATH_FORMAT = f'Saved post subfolder name format. Default is \'{PATH_FORMAT_DEFAULT}\'. {COMMENT_PATH_FORMAT}'
 HELP_ARG_PROXY = 'Proxy to use, supports basic authentication'
 HELP_ARG_DMMODE = '[Debug] Download (file creation) mode'
 HELP_ARG_LOGGING = (

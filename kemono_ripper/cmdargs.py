@@ -51,7 +51,7 @@ from .defs import (
     JSON_INDENT_DEFAULT,
     LOGGING_FLAGS_DEFAULT,
     MAX_JOBS_DEFAULT,
-    PathFormatType,
+    PATH_FORMAT_DEFAULT,
 )
 from .logger import Log
 from .validators import (
@@ -472,7 +472,7 @@ def prepare_arglist(args: Sequence[str]) -> None:
         'skip_cache': False,
         'max_jobs': MAX_JOBS_DEFAULT,
         'path': valid_folder_path(''),
-        'path_format': valid_path_format(next(iter(PathFormatType.__args__))),
+        'path_format': valid_path_format(PATH_FORMAT_DEFAULT),
         'log_level': log_level(LOGGING_DEFAULT.name.lower()),
         'disable_log_colors': False,
         'no_external_links': False,

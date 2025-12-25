@@ -55,7 +55,7 @@ from .filters import (
     make_lspost_filters,
     make_post_link_filters,
 )
-from .formatter import get_path_formatter
+from .formatter import format_path
 from .logger import Log
 from .util import sanitize_path
 
@@ -542,7 +542,7 @@ class KemonoDownloader:
                     links_dict.update({vurl: video['name']})
 
             post_tags = spost['post']['tags']
-            post_dest_base = get_path_formatter(Config.path_format).format(post)
+            post_dest_base = format_path(post, Config.path_format)
             post_dest = Config.dest_base.joinpath(post_dest_base)
 
             links: dict[str, PostLinkDownloadInfo] = {}
