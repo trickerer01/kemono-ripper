@@ -484,7 +484,7 @@ class KemonoDownloader:
             if attachments := post['attachments']:
                 for attachment in attachments:
                     aurl = URL(attachment['path'])
-                    links_dict.update({aurl: attachment['name']})
+                    links_dict.update({aurl: attachment.get('name') or 'Untitled'})
 
             content = post['content']
             if content and len(content) >= 40:
