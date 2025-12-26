@@ -174,6 +174,7 @@ async def _scan_posts_cached(
             for cache_key_r, cache_entry in cache_json.items():
                 cpost = cache_entry['post']
                 if cache_key_r in ls_results_dict and cpost['published'] == ls_results_dict.get(cache_key_r):  # can be None on both sides
+                    cached[cache_key_r] = cache_entry
                     links_dict.pop(cache_key_r)
             Log.info(f'Found {orig_count - len(links_dict):d} fully cached entries!')
         except json.JSONDecodeError:
