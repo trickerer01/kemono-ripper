@@ -35,7 +35,7 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
     if results and _need_convert_to_scan_result(results[0]):
         Log.warn(f'Warning: post import date filter detected for listed post, will scan {len(results):d} posts for missing info...')
         links = [PostPageScanResult(_['id'], _['user'], _['service'], kemono.api_address) for _ in results]
-        sresults = await scan_posts_cached(kemono, links, ls_results=results)
+        sresults = await _scan_posts_cached(kemono, links, ls_results=results)
         Log.info(f'Received {len(sresults)} results. Continuing...')
         results[:] = [_['post'] for _ in sresults]
 
@@ -149,7 +149,7 @@ def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageS
     return links
 
 
-async def scan_posts_cached(
+async def _scan_posts_cached(
     kemono: Kemono,
     links: Iterable[PostPageScanResult],
     *,
@@ -184,12 +184,14 @@ async def scan_posts_cached(
             for sp in sresults:
                 post = sp['post']
                 cache_key_w = PostPageScanResult(post['id'], post['user'], post['service'], kemono.api_address).as_cache_key()
+                props = sp.get('props', ScannedPostProps(flagged=0, revisions=[]))
+                props['revisions'] = []
                 cached[cache_key_w] = ScannedPost(
                     post=sp['post'],
                     attachments=sp.get('attachments', []),
                     previews=sp.get('previews', []),
                     videos=sp.get('videos', []),
-                    props=sp.get('props', ScannedPostProps(flagged=0, revisions=[])),
+                    props=props,
                 )
             Log.info(f'Writing updated cache back to \'{CACHE_SCANNED_NAME_DEFAULT}\'...')
             inout_file_cache.flush()
@@ -251,7 +253,7 @@ async def post_scan_id(kemono: Kemono, *, download=False) -> None:
     creator_id = Config.creator_id
     for post_id in Config.post_ids:
         link = PostPageScanResult(post_id, creator_id, kemono.api_service, kemono.api_address)
-        posts = await scan_posts_cached(kemono, [link])
+        posts = await _scan_posts_cached(kemono, [link])
         results.extend(posts)
         if Config.same_creator:
             creator_id = creator_id or posts[0]['post']['user']
@@ -259,7 +261,7 @@ async def post_scan_id(kemono: Kemono, *, download=False) -> None:
 
 
 async def post_scan_url(kemono: Kemono, *, links: list[PostPageScanResult] | None = None, download=False) -> None:
-    results: list[ScannedPost] = await scan_posts_cached(kemono, links or Config.links)
+    results: list[ScannedPost] = await _scan_posts_cached(kemono, links or Config.links)
     await _process_scan_results(kemono, results, download=download)
 
 
