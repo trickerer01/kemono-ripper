@@ -506,7 +506,7 @@ class KemonoDownloader:
                         if bs_tag.get(tag_name) is None:
                             Log.warn(f'[{user}:{pid}] {title}: tag \'{tag_name}\' was not found in content element {bs_tag!s}. Skipped')
                             continue
-                        url = URL(bs_tag[tag_name])
+                        url = URL(bs_tag[tag_name].strip())
                         if '/' not in str(url):
                             Log.warn(f'[{user}:{pid}] {title}: found tag \'{tag_name}\' with no address: {bs_tag!s}. Skipped')
                             continue
