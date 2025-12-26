@@ -84,7 +84,7 @@ async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], 
         title = p['title']
         content = p['content']
         file = p['file']
-        links_dict: dict[str, str] = {file['name']: file['path']} if file else {}
+        links_dict: dict[str, str] = {file['name']: file['path']} if file and 'name' in file else {}
         attachments = p['attachments']
         links_dict.update({_['name']: _['path'] for _ in attachments})
         links = '\n '.join(f'{name}: https://{kemono.api_address}{path}' for name, path in links_dict.items())
@@ -168,11 +168,12 @@ async def scan_posts_cached(
     Log.info(f'Looking for cache file \'{CACHE_SCANNED_NAME_DEFAULT}\'...')
     cache_file_path = Config.default_config_path().with_name(CACHE_SCANNED_NAME_DEFAULT)
     with open(cache_file_path, 'rt+' if cache_file_path.is_file() else 'wt+', encoding=UTF8, newline='\n') as inout_file_cache:
+        cache_json: dict[str, ScannedPost] = {}
         try:
-            cached.update(json.load(inout_file_cache))
-            for cache_key_r, cache_entry in cached.items():
+            cache_json.update(json.load(inout_file_cache))
+            for cache_key_r, cache_entry in cache_json.items():
                 cpost = cache_entry['post']
-                if cpost['published'] == ls_results_dict.get(cache_key_r):  # can be None on both sides
+                if cache_key_r in ls_results_dict and cpost['published'] == ls_results_dict.get(cache_key_r):  # can be None on both sides
                     links_dict.pop(cache_key_r)
             Log.info(f'Found {orig_count - len(links_dict):d} fully cached entries!')
         except json.JSONDecodeError:
@@ -194,7 +195,7 @@ async def scan_posts_cached(
             inout_file_cache.flush()
             inout_file_cache.seek(0)
             inout_file_cache.truncate()
-            json.dump(cached, inout_file_cache, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
+            json.dump(cache_json | cached, inout_file_cache, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
             inout_file_cache.write('\n')
     return [cached[_] for _ in cached]
 
