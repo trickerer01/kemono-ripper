@@ -48,6 +48,7 @@ class ConfigJSON(TypedDict):
     dest_base: pathlib.Path
     _path_format_comment: str
     path_format: str
+    indent: int
     proxy: str
     logging_flags: int
     disable_log_colors: bool
@@ -148,6 +149,7 @@ class BaseConfig:
             dest_base=self.dest_base,
             _path_format_comment=COMMENT_PATH_FORMAT,
             path_format=self.path_format,
+            indent=self.indent,
             proxy=self.proxy,
             logging_flags=self.logging_flags,
             disable_log_colors=self.disable_log_colors,

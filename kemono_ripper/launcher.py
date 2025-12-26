@@ -187,6 +187,7 @@ async def _scan_posts_cached(
                 cache_key_w = PostPageScanResult(post['id'], post['user'], post['service'], kemono.api_address).as_cache_key()
                 props = sp.get('props', ScannedPostProps(flagged=0, revisions=[]))
                 props['revisions'] = []
+                # sp['post']['content'] = sp['post']['content'][:1000]
                 cached[cache_key_w] = ScannedPost(
                     post=sp['post'],
                     attachments=sp.get('attachments', []),
