@@ -26,6 +26,9 @@ class PostPageScanResult(NamedTuple):
     service: APIService
     api_address: APIAddress
 
+    def as_cache_key(self) -> str:
+        return f'{self.creator_id}:{self.post_id}:{self.service}'
+
 
 # Validated
 
@@ -74,9 +77,21 @@ class ScannedPostPostEmbed(TypedDict):
     description: str | None
 
 
-class ScannedPostPostFile(TypedDict):
+class ScannedPostPostFileCoverOriginal(TypedDict):
     name: str
     path: str
+
+
+class ScannedPostPostFileCover(TypedDict):
+    original: ScannedPostPostFileCoverOriginal
+    main_cover: bool
+
+
+class ScannedPostPostFile(TypedDict):
+    name: str  # may be absent in case of 'covers'
+    path: str  # may be absent is case of 'covers'
+    covers: list[ScannedPostPostFileCover]  # may be absent
+    thumbnail: dict  # unknown, may be absent
 
 
 class ScannedPostPostAttachment(TypedDict):

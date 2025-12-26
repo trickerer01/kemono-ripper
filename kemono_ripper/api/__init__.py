@@ -27,6 +27,7 @@ from .types import (
     PostPageScanResult,
     ScannedPost,
     ScannedPostPost,
+    ScannedPostProps,
     SearchedPost,
     State,
 )
@@ -57,7 +58,6 @@ __all__ = (
     'ListedPost',
     'ListedPostAttachment',
     'ListedPostFile',
-    'ListedPostFile',
     'Mem',
     'PostDownloadInfo',
     'PostLinkDownloadInfo',
@@ -65,6 +65,7 @@ __all__ = (
     'RequestQueue',
     'ScannedPost',
     'ScannedPostPost',
+    'ScannedPostProps',
     'SearchedPost',
     'State',
 )

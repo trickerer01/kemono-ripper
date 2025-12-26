@@ -262,6 +262,11 @@ def add_post_filtering_args(par: ArgumentParser, add_search_filters: bool, add_d
         fi.add_argument('--ext', metavar='#.EXT', action=ACTION_APPEND, help=HELP_ARG_FILTER_FILEEXT, type=valid_ext)
 
 
+def add_post_caching_args(par: ArgumentParser) -> None:
+    ca = par.add_argument_group(title='caching options')
+    ca.add_argument('--skip-cache', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_SKIP_CACHE)
+
+
 def add_logging_args(par: ArgumentParser) -> None:
     lo = par.add_argument_group(title='logging options')
     lo.add_argument('-v', '--log-level', default=None, help=HELP_ARG_LOGGING, type=log_level)
@@ -319,7 +324,6 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     pclg1 = pcl.add_argument_group(title='options')
     pclg1.add_argument('pattern', help=HELP_ARG_CREATOR_NAME_PATTERN, type=str)
-    pclg1.add_argument('--skip-cache', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_SKIP_CACHE)
     #  dump
     pcd = parsers[PARSER_TITLE_CREATOR_DUMP]
     pcd.usage = (
@@ -457,7 +461,8 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     pptdg1 = pptd.add_argument_group(title='options')
     pptdg1.add_argument('--prune', action=ACTION_STORE_TRUE, help=HELP_ARG_PRUNE)
 
-    [add_json_args(_) for _ in (pcd, pcr, ppri, ppru, pprf, pptd, pcfc, pcfm)]
+    [add_json_args(_) for _ in (pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
+    [add_post_caching_args(_) for _ in (pcl, ppl, ppse, pps, ppsi, ppsu, ppsf)]
     [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
     [add_post_filtering_args(_, True, _ not in (ppl, ppse)) for _ in (pcr, ppl, ppse, ppri, ppru, pprf)]
     [add_logging_args(_) for _ in parsers.values()]

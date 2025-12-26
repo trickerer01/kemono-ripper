@@ -15,28 +15,27 @@ from collections.abc import Callable, Coroutine, Iterable, MutableSequence, Sequ
 
 from bs4 import BeautifulSoup
 
-from .api import APIAddress, Creator, Kemono, ListedPost, PostPageScanResult, ScannedPost, ScannedPostPost, SearchedPost
+from .api import APIAddress, Creator, Kemono, ListedPost, PostPageScanResult, ScannedPost, ScannedPostPost, ScannedPostProps, SearchedPost
 from .config import Config
-from .defs import CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, SITE_MEGA, UTF8, PathURLJSONEncoder
+from .defs import CACHE_SCANNED_NAME_DEFAULT, CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, SITE_MEGA, UTF8, PathURLJSONEncoder
 from .downloader import KemonoDownloader
 from .filters import any_filter_matching_ls_post, make_lspost_filters
 from .logger import Log
 from .util import HTTP_PREFIX, HTTPS_PREFIX
+from .validators import valid_post_url
 
 __all__ = ('launch',)
 
-from .validators import valid_post_url
-
 
 def _need_convert_to_scan_result(post: ListedPost | SearchedPost):
-    return 'added' not in post or Config.filter_post_imported or ('tags' not in post and Config.filter_post_tags)
+    return ('added' not in post and Config.filter_post_imported) or ('tags' not in post and Config.filter_post_tags)
 
 
 async def _process_list_search_results(kemono: Kemono, results: MutableSequence[ListedPost] | Sequence[SearchedPost]):
     if results and _need_convert_to_scan_result(results[0]):
         Log.warn(f'Warning: post import date filter detected for listed post, will scan {len(results):d} posts for missing info...')
         links = [PostPageScanResult(_['id'], _['user'], _['service'], kemono.api_address) for _ in results]
-        sresults = await kemono.scan_posts(links)
+        sresults = await scan_posts_cached(kemono, links, ls_results=results)
         Log.info(f'Received {len(sresults)} results. Continuing...')
         results[:] = [_['post'] for _ in sresults]
 
@@ -55,7 +54,7 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
             Log.debug(f'[{user}:{pid}] {title}: post was filtered out by {spfilter!s}! Tags were: {tags!s}')
             continue
         url = f'https://{kemono.api_address}/{service}/user/{user}/post/{pid}'
-        msg = (f'{url} \'{lpost["title"]}\', file: \'{lpost["file"]["name"] if lpost["file"] else "None"}\','
+        msg = (f'{url} \'{lpost["title"]}\', file: \'{lpost["file"].get("name", "Unknown") if lpost["file"] else "None"}\','
                f' {len(lpost["attachments"]):d} attachments, tags: \'{", ".join(tags)}\'')
         listing.append(msg)
     [_.close() for _ in filters if _]
@@ -150,6 +149,56 @@ def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageS
     return links
 
 
+async def scan_posts_cached(
+    kemono: Kemono,
+    links: Iterable[PostPageScanResult],
+    *,
+    ls_results: Iterable[ListedPost] | Iterable[SearchedPost] | None = None,
+) -> list[ScannedPost]:
+    if Config.skip_cache:
+        return await kemono.scan_posts(links)
+    links_dict: dict[str, PostPageScanResult] = {_.as_cache_key(): _ for _ in links}
+    orig_count = len(links_dict)
+    ls_results_dict: dict[str, str] = {}
+    for _ in ls_results or []:
+        lsp: ScannedPostPost = _.get('post', _)
+        lrd_key = PostPageScanResult(lsp['id'], lsp['user'], lsp['service'], kemono.api_address)
+        ls_results_dict[lrd_key.as_cache_key()] = lsp.get('published', '')
+    cached: dict[str, ScannedPost] = {}
+    Log.info(f'Looking for cache file \'{CACHE_SCANNED_NAME_DEFAULT}\'...')
+    cache_file_path = Config.default_config_path().with_name(CACHE_SCANNED_NAME_DEFAULT)
+    with open(cache_file_path, 'rt+' if cache_file_path.is_file() else 'wt+', encoding=UTF8, newline='\n') as inout_file_cache:
+        try:
+            cached.update(json.load(inout_file_cache))
+            for cache_key_r, cache_entry in cached.items():
+                cpost = cache_entry['post']
+                if cpost['published'] == ls_results_dict.get(cache_key_r):  # can be None on both sides
+                    links_dict.pop(cache_key_r)
+            Log.info(f'Found {orig_count - len(links_dict):d} fully cached entries!')
+        except json.JSONDecodeError:
+            pass
+        if links_dict and orig_count != len(links_dict):
+            Log.info(f'Fetching remaining {len(links_dict):d} posts...')
+        if sresults := await kemono.scan_posts([links_dict[_] for _ in links_dict]):
+            for sp in sresults:
+                post = sp['post']
+                cache_key_w = PostPageScanResult(post['id'], post['user'], post['service'], kemono.api_address).as_cache_key()
+                cached[cache_key_w] = ScannedPost(
+                    post=sp['post'],
+                    attachments=sp.get('attachments', []),
+                    previews=sp.get('previews', []),
+                    videos=sp.get('videos', []),
+                    props=sp.get('props', ScannedPostProps(flagged=0, revisions=[])),
+                )
+            Log.info(f'Writing updated cache back to \'{CACHE_SCANNED_NAME_DEFAULT}\'...')
+            inout_file_cache.flush()
+            inout_file_cache.seek(0)
+            inout_file_cache.truncate()
+            json.dump(cached, inout_file_cache, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
+            inout_file_cache.write('\n')
+    return [cached[_] for _ in cached]
+
+
 async def creator_dump(kemono: Kemono) -> None:
     results = await kemono.list_creators()
     results_sorted = sorted(results, key=lambda c: c['name'].lower())
@@ -201,7 +250,7 @@ async def post_scan_id(kemono: Kemono, *, download=False) -> None:
     creator_id = Config.creator_id
     for post_id in Config.post_ids:
         link = PostPageScanResult(post_id, creator_id, kemono.api_service, kemono.api_address)
-        posts = await kemono.scan_posts([link])
+        posts = await scan_posts_cached(kemono, [link])
         results.extend(posts)
         if Config.same_creator:
             creator_id = creator_id or posts[0]['post']['user']
@@ -209,7 +258,7 @@ async def post_scan_id(kemono: Kemono, *, download=False) -> None:
 
 
 async def post_scan_url(kemono: Kemono, *, links: list[PostPageScanResult] | None = None, download=False) -> None:
-    results: list[ScannedPost] = await kemono.scan_posts(links or Config.links)
+    results: list[ScannedPost] = await scan_posts_cached(kemono, links or Config.links)
     await _process_scan_results(kemono, results, download=download)
 
 
@@ -250,27 +299,27 @@ async def _config_write(config_path: pathlib.Path, *, use_backup=False) -> None:
     try:
         Log.info(f'Writing configuration to {config_path.as_posix()}...')
         if config_path.is_file():
-            with open(config_path, 'rt+', encoding=UTF8, newline='\n') as inoutfine_config:
+            with open(config_path, 'rt+', encoding=UTF8, newline='\n') as inout_file_config:
                 if backup_file_path:
-                    backup_json = json.load(inoutfine_config)
+                    backup_json = json.load(inout_file_config)
                     json_to_save = backup_json | Config.to_json()
                     Log.debug(f'Saving backup to \'{backup_file_path.as_posix()}\'...')
                     with open(backup_file_path, 'wt', encoding=UTF8, newline='\n') as outfile_backup:
                         json.dump(backup_json, outfile_backup, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
-                    inoutfine_config.flush()
-                    inoutfine_config.seek(0)
-                    inoutfine_config.truncate()
+                    inout_file_config.flush()
+                    inout_file_config.seek(0)
+                    inout_file_config.truncate()
                 else:
                     json_to_save = Config.to_json()
-                json.dump(json_to_save, inoutfine_config, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
-                inoutfine_config.write('\n')
+                json.dump(json_to_save, inout_file_config, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
+                inout_file_config.write('\n')
             # if backup_file_path and backup_file_path.is_file():
             #     Log.debug(f'Removing backup file \'{backup_file_path.as_posix()}\'...')
             #     backup_file_path.unlink(missing_ok=True)
         else:
-            with open(config_path, 'wt', encoding=UTF8, newline='\n') as outfine_config:
-                json.dump(Config.to_json(), outfine_config, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
-                outfine_config.write('\n')
+            with open(config_path, 'wt', encoding=UTF8, newline='\n') as out_file_config:
+                json.dump(Config.to_json(), out_file_config, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
+                out_file_config.write('\n')
         Log.info('Done')
     except Exception:
         Log.error(f'Failed to write to {config_path.as_posix()}!')

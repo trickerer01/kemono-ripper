@@ -541,7 +541,7 @@ class KemonoDownloader:
                     vurl = URL(video['path'])
                     links_dict.update({vurl: video['name']})
 
-            post_tags = spost['post']['tags']
+            post_tags = post['tags']
             post_dest_base = format_path(post, Config.path_format)
             post_dest = Config.dest_base.joinpath(post_dest_base)
 
