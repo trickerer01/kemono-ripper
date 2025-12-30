@@ -14,7 +14,7 @@ from yarl import URL
 
 APIEntrance = 'api/v1'
 APIMethod: TypeAlias = Literal['GET', 'POST']
-APIAddress: TypeAlias = Literal['kemono.cr', 'kemono.party']  # , 'coomer.st', 'coomer.party'
+APIAddress: TypeAlias = Literal['kemono.cr', 'kemono.party']
 APIService: TypeAlias = Literal['patreon', 'boosty', 'subscribestar', 'fantia', 'gumroad', 'fanbox', 'discord', 'dlsite']
 APIEndpointFormat: TypeAlias = Literal['{}/user/{}/posts', '{}/user/{}/post/{}', '{}/post/{}', 'posts/tags', 'posts']
 APIEndpoint: TypeAlias = Literal['creators', APIEndpointFormat]
