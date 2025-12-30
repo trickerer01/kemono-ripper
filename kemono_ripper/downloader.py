@@ -292,6 +292,7 @@ class KemonoDownloader:
         handler_ex = ExternalURLDownloader(plink.url)
         if handler_ex.valid():
             Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
+            plink.status.state = State.DOWNLOADING
             handler_config = ExternalURLHandlerConfig(Config, plink.url.host, dest_base=plink.path)
             mresults = await handler_ex.download(plink_id, plink.url, handler_config)
             succ_count = len([_.is_file() for _ in mresults])
