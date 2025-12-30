@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'kemono-ripper'
-version = '0.9.142'
+version = '0.9.143'
 authors = [
     {name = 'trickerer01'},
 ]

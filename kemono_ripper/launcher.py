@@ -257,7 +257,7 @@ async def post_scan_id(kemono: Kemono, *, download=False) -> None:
 
 
 async def post_scan_url(kemono: Kemono, *, links: list[PostPageScanResult] | None = None, download=False) -> None:
-    results: list[ScannedPost] = await _scan_posts_cached(kemono, links or Config.links)
+    results: list[ScannedPost] = await _scan_posts_cached(kemono, links or Config.links or [])
     await _process_scan_results(kemono, results, download=download)
 
 
