@@ -149,7 +149,7 @@ async def _scan_posts_cached(
         lrd_key = PostPageScanResult(lsp['id'], lsp['user'], lsp['service'], kemono.api_address)
         ls_results_dict[lrd_key.as_cache_key()] = lsp.get('published', '')
     cached: dict[str, ScannedPost] = {}
-    Log.info(f'Looking for cache file \'{CACHE_SCANNED_NAME_DEFAULT}\'...')
+    Log.debug(f'Looking for cache file \'{CACHE_SCANNED_NAME_DEFAULT}\'...')
     cache_file_path = Config.default_config_path().with_name(CACHE_SCANNED_NAME_DEFAULT)
     with open(cache_file_path, 'rt+' if cache_file_path.is_file() else 'wt+', encoding=UTF8, newline='\n') as inout_file_cache:
         cache_json: dict[str, ScannedPost] = {}
