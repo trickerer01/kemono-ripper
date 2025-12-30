@@ -256,8 +256,7 @@ class KemonoDownloader:
 
             self._downloads_active.pop(post)
             assert post.dest.is_dir()
-            with open(post.dest / POST_DONE_FILE_NAME_DEFAULT, 'ab'):
-                pass
+            post.dest.joinpath(POST_DONE_FILE_NAME_DEFAULT).touch(exist_ok=True)
 
             Log.trace(f'[queue] post {post.post_id} \'{post.original_post["post"]["title"]}\' removed from active')
             if (num_left := len(self._downloads_active)) < Config.max_jobs - 1 and len(self._queue_produce) == 0:
