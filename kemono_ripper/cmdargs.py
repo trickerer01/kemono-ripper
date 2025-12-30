@@ -16,6 +16,8 @@ from .defs import (
     ACTION_STORE_TRUE,
     CONNECT_RETRIES_BASE,
     HELP_ARG_API_ADDRESS,
+    HELP_ARG_CACHE_FORCE,
+    HELP_ARG_CACHE_SKIP,
     HELP_ARG_COOKIE,
     HELP_ARG_CREATOR_ID,
     HELP_ARG_CREATOR_NAME_PATTERN,
@@ -45,7 +47,6 @@ from .defs import (
     HELP_ARG_SAME_CREATOR,
     HELP_ARG_SEARCH_STRING,
     HELP_ARG_SERVICE,
-    HELP_ARG_SKIP_CACHE,
     HELP_ARG_TIMEOUT,
     HELP_ARG_VERSION,
     JSON_INDENT_DEFAULT,
@@ -246,7 +247,7 @@ def add_common_args(par: ArgumentParser) -> None:
     do.add_argument('--no-external-links', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_NO_EXTERNAL_LINKS)
 
 
-def add_post_filtering_args(par: ArgumentParser, add_search_filters: bool, add_download_filters: bool) -> None:
+def add_filtering_args(par: ArgumentParser, add_search_filters: bool, add_download_filters: bool) -> None:
     if not any((add_search_filters, add_download_filters)):
         return
     fi = par.add_argument_group(title='filtering options')
@@ -262,9 +263,10 @@ def add_post_filtering_args(par: ArgumentParser, add_search_filters: bool, add_d
         fi.add_argument('--ext', metavar='#.EXT', action=ACTION_APPEND, help=HELP_ARG_FILTER_FILEEXT, type=valid_ext)
 
 
-def add_post_caching_args(par: ArgumentParser) -> None:
+def add_caching_args(par: ArgumentParser) -> None:
     ca = par.add_argument_group(title='caching options')
-    ca.add_argument('--skip-cache', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_SKIP_CACHE)
+    ca.add_argument('--skip-cache', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_CACHE_SKIP)
+    ca.add_argument('--force-cache', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_CACHE_FORCE)
 
 
 def add_logging_args(par: ArgumentParser) -> None:
@@ -462,9 +464,9 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     pptdg1.add_argument('--prune', action=ACTION_STORE_TRUE, help=HELP_ARG_PRUNE)
 
     [add_json_args(_) for _ in (pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
-    [add_post_caching_args(_) for _ in (pcl, ppl, ppse, pps, ppsi, ppsu, ppsf)]
+    [add_caching_args(_) for _ in (pcl, ppl, ppse, pps, ppsi, ppsu, ppsf)]
     [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
-    [add_post_filtering_args(_, True, _ not in (ppl, ppse)) for _ in (pcr, ppl, ppse, ppri, ppru, pprf)]
+    [add_filtering_args(_, True, _ not in (ppl, ppse)) for _ in (pcr, ppl, ppse, ppri, ppru, pprf)]
     [add_logging_args(_) for _ in parsers.values()]
     [add_help(_, _ == parser_root) for _ in parsers.values()]
     return execute_parser(parser_root, args)

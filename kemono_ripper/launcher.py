@@ -156,6 +156,10 @@ async def _scan_posts_cached(
         try:
             cache_json.update(json.load(inout_file_cache))
             for cache_key_r, cache_entry in cache_json.items():
+                if Config.force_cache and cache_key_r in links_dict:
+                    cached[cache_key_r] = cache_entry
+                    links_dict.pop(cache_key_r)
+                    continue
                 cpost = cache_entry['post']
                 if cache_key_r in ls_results_dict and cpost['published'] == ls_results_dict.get(cache_key_r):  # can be None on both sides
                     cached[cache_key_r] = cache_entry

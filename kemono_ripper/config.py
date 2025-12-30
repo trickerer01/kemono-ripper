@@ -44,6 +44,7 @@ class ConfigJSON(TypedDict):
     api_address: str
     service: str
     skip_cache: bool
+    force_cache: bool
     max_jobs: int
     dest_base: pathlib.Path
     _path_format_comment: str
@@ -100,7 +101,9 @@ class BaseConfig:
         self.pattern: str | None = None
         '''creator list pattern'''
         self.skip_cache: bool | None = None
-        '''creator list cache'''
+        '''json caches'''
+        self.force_cache: bool | None = None
+        '''json caches'''
         self.indent: int | None = None
         '''indentation for saved json files'''
         self.prune: bool | None = None
@@ -145,6 +148,7 @@ class BaseConfig:
             api_address=self.api_address,
             service=self.service,
             skip_cache=self.skip_cache,
+            force_cache=self.force_cache,
             max_jobs=self.max_jobs,
             dest_base=self.dest_base,
             _path_format_comment=COMMENT_PATH_FORMAT,
