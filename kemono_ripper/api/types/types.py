@@ -301,6 +301,8 @@ class PostDownloadInfo(NamedTuple):
     post_id: str
     creator_id: str
     creator_name: str
+    service: str
+    title: str
     tags: list[str]
     dest: pathlib.Path
     original_post: ScannedPost

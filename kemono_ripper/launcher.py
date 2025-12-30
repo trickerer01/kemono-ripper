@@ -8,16 +8,14 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 import json
 import pathlib
-import re
 import sys
 from argparse import ArgumentError
 from collections.abc import Callable, Coroutine, Iterable, MutableSequence, Sequence
 
-from bs4 import BeautifulSoup
-
+from .analyzer import gather_post_info
 from .api import APIAddress, Creator, Kemono, ListedPost, PostPageScanResult, ScannedPost, ScannedPostPost, ScannedPostProps, SearchedPost
 from .config import Config
-from .defs import CACHE_SCANNED_NAME_DEFAULT, CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, SITE_MEGA, UTF8, PathURLJSONEncoder
+from .defs import CACHE_SCANNED_NAME_DEFAULT, CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, UTF8, PathURLJSONEncoder
 from .downloader import KemonoDownloader
 from .filters import any_filter_matching_ls_post, make_lspost_filters
 from .logger import Log
@@ -70,35 +68,21 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
 
 
 async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], *, download=False) -> None:
+    post_infos = gather_post_info(results, kemono.api_address)
+
     if download:
         Log.info(f'Sending {len(results):d} posts to download queue...')
-        async with KemonoDownloader(kemono, results) as downloader:
+        async with KemonoDownloader(kemono, post_infos) as downloader:
             await downloader.run()
         return
 
     listing: list[str] = []
-    for sp in results:
-        p: ScannedPostPost = sp['post']
-        pid = p['id']
-        user = p['user']
-        title = p['title']
-        content = p['content']
-        file = p['file']
-        links_dict: dict[str, str] = {file['name']: file['path']} if file and 'name' in file else {}
-        attachments = p['attachments']
-        links_dict.update({_['name']: _['path'] for _ in attachments})
-        links = '\n '.join(f'{name}: https://{kemono.api_address}{path}' for name, path in links_dict.items())
-        if content:
-            bs = BeautifulSoup(content, 'html.parser')
-            refs: list[str] = [str(_['href']) for _ in bs.find_all('a')]
-            refs_mega: list[str] = [_ for _ in refs if SITE_MEGA in _ and '#' not in _]
-            keys_mega: list[str] = [_.string for _ in bs.find_all(text=re.compile(r'#?\w{28,}'))]
-            if len(refs_mega) == len(keys_mega):
-                for i in range(len(refs_mega)):
-                    key = re.search(r'(#?\w{28,})', keys_mega[i]).group(1)
-                    refs[refs.index(refs_mega[i])] = f'{refs_mega[i]}{"" if key.startswith("#") else "#"}{key}'
-            refs.extend(f'https://{kemono.api_address}{_["src"]!s}' for _ in bs.find_all('img'))
-            links += ('\n' if links and refs else '') + '\n '.join(f'link_{i:d}: {ref}' for i, ref in enumerate(refs))
+    for post_info in post_infos:
+        pid = post_info.post_id
+        user = post_info.creator_id
+        title = post_info.title
+        content = post_info.original_post['post']['content']
+        links = '\n '.join(f'{name}: {plink.url!s}' for name, plink in post_info.links.items())
         post_str = f'[{user}:{pid}] {title}:\n\'{content}\'\nlinks:\n {links}\n'
         listing.append(post_str)
     Log.info('\n'.join(('\n', *listing)) or '\nNothing')
@@ -176,7 +160,8 @@ async def _scan_posts_cached(
                 if cache_key_r in ls_results_dict and cpost['published'] == ls_results_dict.get(cache_key_r):  # can be None on both sides
                     cached[cache_key_r] = cache_entry
                     links_dict.pop(cache_key_r)
-            Log.info(f'Found {orig_count - len(links_dict):d} fully cached entries!')
+            if cached:
+                Log.info(f'Found {len(cached):d} fully cached entries!')
         except json.JSONDecodeError:
             pass
         if links_dict and orig_count != len(links_dict):
@@ -231,13 +216,14 @@ async def creator_rip(kemono: Kemono) -> None:
     links: list[PostPageScanResult] = []
     for lpost in results:
         pid = lpost['id']
-        # user = lpost['user']
-        # title = lpost['title']
+        user = lpost['user']
         service = lpost['service']
-        link = PostPageScanResult(pid, Config.creator_id, service, kemono.api_address)
+        link = PostPageScanResult(pid, user, service, kemono.api_address)
         links.append(link)
     if links:
         await post_rip_url(kemono, links=links)
+    else:
+        Log.warn(f'No posts found for creator {Config.creator_id}!')
 
 
 async def post_list(kemono: Kemono) -> None:
@@ -253,12 +239,20 @@ async def post_search(kemono: Kemono) -> None:
 async def post_scan_id(kemono: Kemono, *, download=False) -> None:
     results: list[ScannedPost] = []
     creator_id = Config.creator_id
-    for post_id in Config.post_ids:
-        link = PostPageScanResult(post_id, creator_id, kemono.api_service, kemono.api_address)
-        posts = await _scan_posts_cached(kemono, [link])
+    post_ids = Config.post_ids.copy()
+    if Config.same_creator:
+        if not creator_id:
+            pid_0 = post_ids.pop(0)
+            results[:] = await _scan_posts_cached(kemono, [PostPageScanResult(pid_0, creator_id, kemono.api_service, kemono.api_address)])
+            creator_id = results[0]['post']['user']
+        links = [PostPageScanResult(post_id, creator_id, kemono.api_service, kemono.api_address) for post_id in post_ids]
+        posts = await _scan_posts_cached(kemono, links)
         results.extend(posts)
-        if Config.same_creator:
-            creator_id = creator_id or posts[0]['post']['user']
+    else:
+        for post_id in post_ids:
+            link = PostPageScanResult(post_id, creator_id, kemono.api_service, kemono.api_address)
+            posts = await _scan_posts_cached(kemono, [link])
+            results.extend(posts)
     await _process_scan_results(kemono, results, download=download)
 
 
