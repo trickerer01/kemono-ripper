@@ -68,6 +68,10 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
 
 
 async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], *, download=False) -> None:
+    if not results:
+        Log.info(f'Nothing to process')
+        return
+
     post_infos = gather_post_info(results, kemono.api_address)
 
     if download:
@@ -86,7 +90,15 @@ async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], 
         links = '\n '.join(f'{name}: {plink.url!s}' for name, plink in post_info.links.items())
         post_str = f'[{user}:{pid}] {title}:\ntags:\n{tags!s}\n\'{content}\'\nlinks:\n {links}\n'
         listing.append(post_str)
-    Log.info('\n'.join(('\n', *listing)) or '\nNothing')
+
+    msgs = (
+        '',
+        f'{len(listing):d} posts:',
+        '',
+        *listing,
+    )
+    for msg in msgs:
+        Log.info(msg)
 
 
 def _parse_posts_file(kemono: Kemono, contents: Iterable[str]) -> list[PostPageScanResult]:
