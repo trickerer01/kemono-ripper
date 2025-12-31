@@ -166,18 +166,18 @@ def gather_post_info(
                 continue
             if link_base.is_absolute() and not link_base.scheme:  # boosty content <img>
                 link_base = link_base.with_scheme('https')
+            if not link_base.host:
+                link_base = next_api_address().with_path(f'data{link_base.path}')
+                Log.trace(f'Fixing link with no host -> \'{link_base!s}\'')
             if DirectLinkDownloader.is_link_supported(link_base):
                 link_base = DirectLinkDownloader.normalize_link(link_base)
-            if not link_base.is_absolute() or link_base.host in APIAddress.__args__:
-                link_full = next_api_address().with_path(f'data{link_base.path}')
-            else:
-                if Config.no_external_links:
-                    Log.warn(f'[{user}:{pid}] {title}: skipping {link_base} due to \'--no-external-links\' flag!')
-                    continue
-                link_full = link_base
+            if link_base.host not in APIAddress.__args__ and Config.no_external_links:
+                Log.warn(f'[{user}:{pid}] {title}: skipping {link_base} due to \'--no-external-links\' flag!')
+                continue
             if not pathlib.Path(name).suffix:
                 name = f'{name}{link_base.suffix}'
 
+            link_full = link_base
             name_append = name
             lpath = post_dest.joinpath(sanitize_path(next_file_name(name_append)))
             while (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN and len(name_append) > 15:
