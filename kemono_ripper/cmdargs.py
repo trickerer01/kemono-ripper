@@ -274,6 +274,11 @@ def add_logging_args(par: ArgumentParser) -> None:
     lo.add_argument('-g', '--disable-log-colors', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_NOCOLORS)
 
 
+def add_file_parsing_args(par: ArgumentParser) -> None:
+    lin = par.add_argument_group(title='file parsing options')
+    lin.add_argument('--lines', metavar='min-max', default=None, help=HELP_ARG_POST_FILE_LINES, type=valid_range)
+
+
 def add_json_args(par: ArgumentParser) -> None:
     ind = par.add_argument_group(title='JSON options')
     ind.add_argument('-i', '--indent', metavar='1..8', default=INDENT_DEFAULT, help=HELP_ARG_INDENT, type=valid_indent)
@@ -446,7 +451,6 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     pprfg1 = pprf.add_argument_group(title='options')
     pprfg1.add_argument('file', help=HELP_ARG_POST_FILE, type=valid_file_path)
-    pprfg1.add_argument('--lines', metavar='min-max', default=None, help=HELP_ARG_POST_FILE_LINES, type=valid_range)
     #  tag
     ppt = parsers[PARSER_TITLE_POST_TAGS]
     ppt.usage = (
@@ -462,6 +466,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     pptdg1 = pptd.add_argument_group(title='options')
     pptdg1.add_argument('--prune', action=ACTION_STORE_TRUE, help=HELP_ARG_PRUNE)
 
+    [add_file_parsing_args(_) for _ in (ppsf, pprf)]
     [add_json_args(_) for _ in (pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
     [add_caching_args(_) for _ in (pcl, ppl, ppse, pps, ppsi, ppsu, ppsf)]
     [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]

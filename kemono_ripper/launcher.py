@@ -81,9 +81,10 @@ async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], 
         pid = post_info.post_id
         user = post_info.creator_id
         title = post_info.title
+        tags = post_info.tags
         content = post_info.original_post['post']['content']
         links = '\n '.join(f'{name}: {plink.url!s}' for name, plink in post_info.links.items())
-        post_str = f'[{user}:{pid}] {title}:\n\'{content}\'\nlinks:\n {links}\n'
+        post_str = f'[{user}:{pid}] {title}:\ntags:\n{tags!s}\n\'{content}\'\nlinks:\n {links}\n'
         listing.append(post_str)
     Log.info('\n'.join(('\n', *listing)) or '\nNothing')
 
