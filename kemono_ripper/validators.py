@@ -29,7 +29,7 @@ from .defs import (
 from .logger import Log
 from .util import build_regex_from_pattern, sanitize_path
 
-re_post_page = re.compile(fr'({"|".join(APIAddress.__args__)})/({"|".join(APIService.__args__)})(?:/user/([-\w]+))?/post/([-\w]+)')
+re_post_page = re.compile(fr'({"|".join(APIAddress.__args__)})/({"|".join(APIService.__args__)})(?:/user/([-.\w]+))?/post/([-.\w]+)')
 re_format_token = re.compile(fr'({"|".join(t for t in PATH_FORMAT_TOKENS)})')
 re_ext = re.compile(r'^\.\w{2,5}$')
 
