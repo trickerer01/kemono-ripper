@@ -58,7 +58,6 @@ from .logger import Log
 from .validators import (
     log_level,
     positive_int,
-    positive_nonzero_int,
     valid_date_range,
     valid_ext,
     valid_file_path,
@@ -341,7 +340,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
         f' #[options...] #creator_id'
     )
     pcrg1 = pcr.add_argument_group(title='options')
-    pcrg1.add_argument('creator_id', help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
+    pcrg1.add_argument('creator_id', help=HELP_ARG_CREATOR_ID)
 
     # Posts
     pp = parsers[PARSER_TITLE_POST]
@@ -359,7 +358,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
         f' #[options...] #creator_id'
     )
     pplg1 = ppl.add_argument_group(title='options')
-    pplg1.add_argument('creator_id', help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
+    pplg1.add_argument('creator_id', help=HELP_ARG_CREATOR_ID)
     #  search
     ppse = parsers[PARSER_TITLE_POST_SEARCH]
     ppse.usage = (
@@ -387,9 +386,9 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
         f' #[options...] [--creator-id #user_id | --same-creator] #post_id [post_id ...]'
     )
     ppsig1 = ppsi.add_argument_group(title='options')
-    ppsig1.add_argument('post_id', metavar='post_id [post_id ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_ID, type=positive_nonzero_int)
+    ppsig1.add_argument('post_id', metavar='post_id [post_id ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_ID)
     ppsigm1 = ppsig1.add_mutually_exclusive_group(required=False)
-    ppsigm1.add_argument('--creator-id', metavar='creator_id', nargs=OPTIONAL, help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
+    ppsigm1.add_argument('--creator-id', metavar='creator_id', nargs=OPTIONAL, help=HELP_ARG_CREATOR_ID)
     ppsigm1.add_argument('--same-creator', action=ACTION_STORE_TRUE, help=HELP_ARG_SAME_CREATOR)
     #   scan URL
     ppsu = parsers[PARSER_TITLE_POST_SCAN_URL]
@@ -428,7 +427,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     )
     pprig1 = ppri.add_argument_group(title='options')
     pprig1.add_argument('post_id', metavar='post_id [post_id ...]', nargs=ONE_OR_MORE, help=HELP_ARG_POST_ID)
-    pprig1.add_argument('--creator-id', nargs=OPTIONAL, default=0, help=HELP_ARG_CREATOR_ID, type=positive_nonzero_int)
+    pprig1.add_argument('--creator-id', nargs=OPTIONAL, default=0, help=HELP_ARG_CREATOR_ID)
     #   rip URL
     ppru = parsers[PARSER_TITLE_POST_RIP_URL]
     ppru.usage = (
