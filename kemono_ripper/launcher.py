@@ -44,7 +44,7 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
         pid = lpost['id']
         user = lpost['user']
         service = lpost['service']
-        title = lpost['title']
+        title = lpost['title'].replace('\n', ' ')
         lspost: SearchedPost = SearchedPost(**lpost)  # silence linter
         tags: list[str] = lspost.get('tags') or []
         if spfilter := any_filter_matching_ls_post(lpost, filters):
@@ -52,7 +52,7 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
             Log.debug(f'[{user}:{pid}] {title}: post was filtered out by {spfilter!s}! Tags were: {tags!s}')
             continue
         url = f'https://{kemono.api_address}/{service}/user/{user}/post/{pid}'
-        msg = (f'{url} \'{lpost["title"]}\', file: \'{lpost["file"].get("name", "Unknown") if lpost["file"] else "None"}\','
+        msg = (f'{url} \'{title}\', file: \'{lpost["file"].get("name", "Unknown") if lpost["file"] else "None"}\','
                f' {len(lpost["attachments"]):d} attachments, tags: \'{", ".join(tags)}\'')
         listing.append(msg)
     [_.close() for _ in filters if _]
@@ -69,7 +69,7 @@ async def _process_list_search_results(kemono: Kemono, results: MutableSequence[
 
 async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], *, download=False) -> None:
     if not results:
-        Log.info(f'Nothing to process')
+        Log.info('Nothing to process')
         return
 
     post_infos = gather_post_info(results, kemono.api_address)
@@ -84,9 +84,9 @@ async def _process_scan_results(kemono: Kemono, results: Sequence[ScannedPost], 
     for post_info in post_infos:
         pid = post_info.post_id
         user = post_info.creator_id
-        title = post_info.title
+        title = post_info.title.replace('\n', ' ')
         tags = post_info.tags
-        content = post_info.original_post['post']['content']
+        content = post_info.original_post['post']['content'].replace('\n', ' ')
         links = '\n '.join(f'{name}: {plink.url!s}' for name, plink in post_info.links.items())
         post_str = f'[{user}:{pid}] {title}:\ntags:\n{tags!s}\n\'{content}\'\nlinks:\n {links}\n'
         listing.append(post_str)
