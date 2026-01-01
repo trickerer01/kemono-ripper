@@ -195,6 +195,8 @@ def valid_range(range_str: str) -> NumRange:
     try:
         range_str = range_str or f'0-{2 ** 40:d}'
         parts = range_str.split('-', maxsplit=2)
+        if len(parts) == 1 and parts[0].isnumeric():
+            parts.extend(parts)
         assert len(parts) == 2
         rmin = valid_number(parts[0] or 0., lb=0.0, ub=float(2 ** 40), rfloat=True)
         rmax = valid_number(parts[1] or float(2 ** 40), lb=rmin, ub=float(2 ** 40), rfloat=True)
