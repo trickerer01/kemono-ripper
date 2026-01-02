@@ -77,8 +77,9 @@ class DirectLinkDownloader:
         assert self._session is not None
         if self._nodelay is False:
             await RequestQueue.until_ready(str(url))
-        Log.trace(f'[{try_num + 1:d}] Sending request: GET => {url!s}')
-        response = await self._session.request('GET', url, **kwargs)
+        method = kwargs.pop('method', 'GET')
+        Log.trace(f'[{try_num + 1:d}] Sending request: {method} => {url!s}')
+        response = await self._session.request(method, url, **kwargs)
         return response
 
     async def _download(self, url: URL, output_path: pathlib.Path) -> pathlib.Path | None:
@@ -179,7 +180,7 @@ class DirectLinkDownloader:
         while try_num <= self._retries:
             r: ClientResponse | None = None
             try:
-                async with await self._wrap_request(url, try_num=try_num) as r:
+                async with await self._wrap_request(url, method='HEAD', try_num=try_num) as r:
                     if r.status == 404:
                         try_num = self._retries
                         raise FileNotFoundError('Status 404!')
