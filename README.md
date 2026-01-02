@@ -35,10 +35,10 @@
   - `<base...> creator ...`
   - `<base...> post ...`
   - `<base...> config ...`
-- Kemono ripper uses local config file to store its settings so the first thing you have to do is create basic config:
+- Kemono ripper uses local config file to store its settings and will automatically create one if it doesn't exist. You can also do this manually:
   - `<base...> config create`
 - Now you have a `settings.json` file sitting inside app base folder. You can modify it as you wish manually or using `<base...> config modify` command. These settings will be automatically picked at app launch. Any extra options you provide in subsequent non-`config` commands will override default settings (but won't be saved)
-- It is recommended to adjust these settings before proceeding (base download folder in particular)
+- It is recommended to adjust these settings before proceeding (e.g. base download folder)
 ##### Examples
 - Dump a list of all creators:
   - `<base...> creator dump`. Use `--prune` flag to save only minimal amount of information required to identify an artist
@@ -59,6 +59,28 @@
     <api_base>/gumroad/user/2479556639713/post/manhr
     ...
     ```
+- Dump popular tags:
+  - `<base...> post tag dump`. Output:
+    ```
+    Writing tags to <base_path>/post_tags.json...
+    Done
+    ...
+    ```
+- Search for posts using a keyword, tags or both:
+  - `<base...> post search overwatch sniper rifle`. Here search string is `overwatch` and (`sniper`, `rifle`) are addtitional tag filters. Output:
+    ```
+    Page 1 / 1...
+    6 posts found (0 / 6 filtered out)
+    https://kemono.cr/patreon/user/111908/post/21916011 'Manca makes a 620m headshot', file: ..., 3 attachments
+    ...
+    ```
+  - `<base...> post search "" "sniper rifle"`. You can skip the search query altogether and only use tags. In this example `sniper rifle` is a single tag. Output:
+    ```
+    Page 1 / 1...
+    3 posts found (0 / 3 filtered out)
+    https://kemono.cr/patreon/user/22815483/post/85432829 'Lynn Imbellia', file: ..., 7 attachments
+    ...
+    ```
 - Download a single post:
   - `<base...> post rip id nFYPl --service gumroad`. Output:
     ```
@@ -69,6 +91,6 @@
     _Unsupported here is a youtube link_
   - You can also rip posts using full URL `post rip url ...` or even read rip targets from a text file `post rip file`
 - Download **all** creator posts
-  - `<base...> creator rip 2479556639713 --service gumroad`. Warning: ripper will not check if you have enough free storage space or not!
+  - `<base...> creator rip 2479556639713 --service gumroad`. Warning: ripper will not check wether you have enough free storage space or not!
 
 For bug reports, questions and feature requests use our [issue tracker](https://github.com/trickerer01/kemono-ripper/issues)
