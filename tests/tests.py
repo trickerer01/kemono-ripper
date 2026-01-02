@@ -15,6 +15,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from kemono_ripper import APP_NAME, APP_VERSION, main_sync
+from kemono_ripper.analyzer import SUPPORTED_EXTENSIONS
 from kemono_ripper.api import APIAddress, RequestQueue
 from kemono_ripper.config import Config
 from kemono_ripper.defs import UTF8
@@ -41,11 +42,19 @@ def test_prepare(log=False) -> Callable[[], Callable[[], None]]:
     return invoke1
 
 
-class CmdTests(TestCase):
+class DataIntegrityTests(TestCase):
     @test_prepare()
-    def test_config_integrity(self):
+    def test_integrity_config(self):
         assert all(hasattr(Config, _) for _ in Config.NAMESPACE_VARS_REMAP.values())
         print(f'{self._testMethodName} passed')
+
+    @test_prepare()
+    def test_integrity_extensions(self):
+        assert all(_.startswith('.') for _ in SUPPORTED_EXTENSIONS)
+        print(f'{self._testMethodName} passed')
+
+
+class CmdTests(TestCase):
 
     @test_prepare()
     def test_output_version(self):

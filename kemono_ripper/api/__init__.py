@@ -30,6 +30,7 @@ from .types import (
     ScannedPostProps,
     SearchedPost,
     State,
+    URLProbeResult,
 )
 
 __all__ = (
@@ -68,4 +69,5 @@ __all__ = (
     'ScannedPostProps',
     'SearchedPost',
     'State',
+    'URLProbeResult',
 )

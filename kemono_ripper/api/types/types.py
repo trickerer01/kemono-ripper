@@ -271,6 +271,11 @@ class DownloadStatus:
     __repr__ = __str__
 
 
+class URLProbeResult(NamedTuple):
+    suffix: str
+    size: int
+
+
 class PostLinkDownloadInfo(NamedTuple):
     name: str
     url: URL

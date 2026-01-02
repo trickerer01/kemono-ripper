@@ -15,12 +15,12 @@ from asyncio import Semaphore
 from asyncio.queues import Queue as AsyncQueue
 from asyncio.tasks import as_completed, gather, sleep
 from collections import defaultdict, deque
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Final, Protocol
 
 from yarl import URL
 
-from .analyzer import is_link_supported
+from .analyzer import is_link_extension_supported, is_link_supported
 from .api import (
     DownloadMode,
     DownloadResult,
@@ -30,6 +30,7 @@ from .api import (
     PostDownloadInfo,
     PostLinkDownloadInfo,
     State,
+    URLProbeResult,
 )
 from .config import Config, ExternalURLHandlerConfig
 from .defs import (
@@ -85,6 +86,21 @@ class DirectLinkHandler:
         return '<direct-download>'
 
 
+class UnknownLinkHandler(DirectLinkHandler):
+    @staticmethod
+    def name() -> str:
+        return 'UnknownDirectLink'
+
+    @staticmethod
+    def app_name() -> str:
+        return '<unknown-direct-download>'
+
+    @staticmethod
+    async def probe(url: URL, config: ExternalURLHandlerConfig, probe_func: Callable[[str], bool]) -> URLProbeResult:
+        async with DirectLinkDownloader([str(url)], config) as direct_downloader:
+            return await direct_downloader.probe(probe_func)
+
+
 class MegaURLHandler:
     _semaphore: Semaphore = Semaphore(1)
 
@@ -122,24 +138,37 @@ class MediafireURLHandler:
 class ExternalURLDownloader:
     def __init__(self, url: URL) -> None:
         self._url = url
+        self._probed = False
 
     @property
     def _handler(self) -> ExternalURLHandler:
-        return EXTERNAL_URL_HANDLERS[self._url.host]
+        return EXTERNAL_URL_HANDLERS.get(self._url.host, UnknownLinkHandler())
 
     def valid(self) -> bool:
         return self._url.host in EXTERNAL_URL_HANDLERS
 
     def name(self) -> str:
-        return self._handler.name() if self.valid() else 'None'
+        return self._handler.name()
 
     def app_name(self) -> str:
-        return self._handler.app_name() if self.valid() else 'Unknown'
+        return self._handler.app_name()
+
+    async def probe(self, plink_id: str, url: URL, config: ExternalURLHandlerConfig, probe_func: Callable[[str], bool]) -> URLProbeResult:
+        dhandler = UnknownLinkHandler()
+        try:
+            presult = await dhandler.probe(url, config, probe_func)
+            assert presult.suffix and presult.size > 0
+            Log.info(f'{plink_id} \'{dhandler.app_name()}\' has successfully probed {self._url!s}: {presult!s}')
+            self._probed = True
+            return presult
+        except Exception:
+            import traceback
+            Log.warn(f'{traceback.format_exc(limit=0)}\n{plink_id} \'{dhandler.app_name()}\': probe of {self._url!s} has failed!')
 
     async def download(self, plink_id: str, url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
         try:
-            assert self.valid()
-            mresults = await self._handler.run(url, config) if self.valid() else []
+            assert self.valid() or self._probed
+            mresults = await self._handler.run(url, config)
             Log.info(f'{plink_id} \'{self.app_name()}\' has successfully handled {self._url!s} ({len(mresults)} files)')
             return mresults
         except Exception:
@@ -287,20 +316,25 @@ class KemonoDownloader:
         await self._at_post_link_start(post, plink)
         plink_id = f'[{post.creator_id}:{post.post_id}] \'{plink.name}\''
         plink.status.state = State.SCANNING
-        url_str = str(plink.url)
-        handler_ex = ExternalURLDownloader(plink.url)
-        if handler_ex.valid():
+        url = plink.url
+        url_str = str(url)
+        link_supported = is_link_supported(url)
+        handler_ex = ExternalURLDownloader(url)
+        handler_config = ExternalURLHandlerConfig(Config, url.host, dest_base=plink.path)
+        handler_valid = handler_ex.valid()
+        if handler_valid is False and link_supported is False and Config.probe_unknown_links and is_link_extension_supported(url.suffix):
+            handler_config.proxy = ''  # assume unknown link is reachable always
+            presult = await handler_ex.probe(plink_id, url, handler_config, is_link_extension_supported)
+            if presult.suffix and presult.size > 0:
+                handler_valid = True
+        if handler_valid:
             Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
             plink.status.state = State.DOWNLOADING
-            handler_config = ExternalURLHandlerConfig(Config, plink.url.host, dest_base=plink.path)
-            mresults = await handler_ex.download(plink_id, plink.url, handler_config)
+            mresults = await handler_ex.download(plink_id, url, handler_config)
             succ_count = len([_.is_file() for _ in mresults])
             Log.info(f'{plink_id}: {handler_ex.app_name()} handled {url_str} with {succ_count:d} / {len(mresults):d} success')
             dresult = DownloadResult.HANDLED_EXTERNALLY
-        elif not is_link_supported(plink.url):
-            Log.warn(f'{plink_id}: Skipping unsupported link format {url_str}...')
-            dresult = DownloadResult.FAIL_UNSUPPORTED
-        else:
+        elif link_supported:
             Log.info(f'{plink_id} Processing {url_str} => {plink.local_path}')
             plink.status.state = State.DOWNLOADING
             await self.add_to_writes(post, plink, True)
@@ -321,6 +355,9 @@ class KemonoDownloader:
                 else DownloadResult.FAIL_ALREADY_EXISTS if ec == KemonoErrorCodes.EEXISTS
                 else DownloadResult.FAIL_RETRIES
             )
+        else:
+            Log.warn(f'{plink_id}: Skipping link {url_str}...')
+            dresult = DownloadResult.FAIL_UNSUPPORTED
         plink.status.result = dresult
         plink.status.state = State.FAILED if ((1 << plink.status.result) & DownloadResult.RESULT_MASK_CRITICAL) else State.DONE
         await self._at_post_link_finish(post, plink)

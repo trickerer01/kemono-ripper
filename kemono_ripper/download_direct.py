@@ -13,13 +13,14 @@ import pathlib
 import random
 import sys
 from asyncio import create_task, gather, sleep
+from collections.abc import Callable
 
 from aiofile import async_open
 from aiohttp import ClientConnectorError, ClientPayloadError, ClientResponse, ClientSession, ClientTimeout, TCPConnector
 from aiohttp_socks import ProxyConnector
 from yarl import URL
 
-from .api import DownloadMode, Mem, RequestQueue
+from .api import DownloadMode, Mem, RequestQueue, URLProbeResult
 from .config import ExternalURLHandlerConfig
 from .defs import SupportedExternalWebsites
 from .logger import Log
@@ -171,6 +172,36 @@ class DirectLinkDownloader:
         Log.error(f'Unable to connect. Aborting {local_path}')
         return pathlib.Path()
 
+    async def _probe(self, url: URL, probe_func: Callable[[str], bool]) -> URLProbeResult:
+        if self._session is None:
+            self._session = self._make_session()
+        try_num = 0
+        while try_num <= self._retries:
+            r: ClientResponse | None = None
+            try:
+                async with await self._wrap_request(url, try_num=try_num) as r:
+                    if r.status == 404:
+                        try_num = self._retries
+                        raise FileNotFoundError('Status 404!')
+                    r.raise_for_status()
+                    content_type = r.content_type
+                    suffix = f'.{content_type[content_type.find("/") + 1:]}'
+                    if not probe_func(suffix):
+                        try_num = self._retries
+                        raise ValueError(f'Probe func failed for suffix \'{suffix}\'!')
+                    content_len: int = r.content_length or 0
+                    assert content_len > 0, f'Content length is {r.content_length!s} for {url!s}! Retrying...'
+                    return URLProbeResult(suffix, content_len)
+            except Exception:
+                Log.error(f'[Probe] {url!s}: {sys.exc_info()[0]}: {sys.exc_info()[1]}')
+                try_num += 1
+                if r is not None and not r.closed:
+                    r.close()
+                if try_num <= self._retries:
+                    await sleep(random.uniform(2., 4.))
+                continue
+        return URLProbeResult('', -1)
+
     @staticmethod
     def is_link_supported(url: URL) -> bool:
         if url.is_absolute():
@@ -215,6 +246,11 @@ class DirectLinkDownloader:
         results: tuple[pathlib.Path | BaseException, ...] = await gather(*tasks)
         Log.info(f'Downloaded {len([c for c in results if isinstance(c, pathlib.Path)])} / {len(tasks)} files')
         return list(results)
+
+    async def probe(self, probe_func: Callable[[str], bool]) -> URLProbeResult:
+        assert len(self._links) == 1
+        result = await create_task(self._probe(URL(self._links[0]), probe_func))
+        return result
 
 #
 #

@@ -23,12 +23,20 @@ from .formatter import format_path
 from .logger import Log
 from .util import sanitize_path
 
-__all__ = ('extract_link_name', 'gather_post_info', 'is_link_supported')
+__all__ = ('extract_link_name', 'gather_post_info', 'is_link_extension_supported', 'is_link_supported')
 
 SUPPORTED_TAGS = (
     ('a', 'href'),
     ('img', 'src'),
 )
+
+SUPPORTED_EXTENSIONS = {
+    '.mp4', '.webm', '.m4v', '.mov', '.3gp',
+    '.ogg', '.wav', '.mp3', '.flac',
+    '.webp', '.avif', '.gif', '.png', '.apng', '.jpg', '.jpeg',
+    '.fbx', '.blend', '.stl', '.3dx', '.bin',
+    '.zip', '.rar', '.gz', '.tar.gz', '.7z',
+}
 
 
 def extract_link_name(url: URL) -> str:
@@ -39,6 +47,10 @@ def is_link_supported(url: URL) -> bool:
     if '.'.join(url.host.split('.')[-2:]) in APIAddress.__args__:
         return True
     return DirectLinkDownloader.is_link_supported(url)
+
+
+def is_link_extension_supported(ext: str) -> bool:
+    return (ext or 'UNK') in SUPPORTED_EXTENSIONS
 
 
 def gather_post_info(
@@ -129,6 +141,9 @@ def gather_post_info(
                             url_purged = url.with_query('')
                             link_name = f'unnamed_{link_idx:02d}' if url == url_purged else extract_link_name(url)
                         elif is_link_supported(url):
+                            link_name = extract_link_name(url)
+                        elif is_link_extension_supported(url.suffix) and Config.probe_unknown_links:
+                            Log.warn(f'Unknown link {url!s} contains extension. Will be probed for media type')
                             link_name = extract_link_name(url)
                         else:
                             link_idx += 1

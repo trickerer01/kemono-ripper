@@ -136,6 +136,7 @@ class BaseConfig:
         # extra (not configurable)
         self.nodelay: bool = False
         self.noconfirm: bool = True
+        self.probe_unknown_links: bool = True
 
     def _reset(self) -> None:
         self.__init__()  # noqa: PLC2801
