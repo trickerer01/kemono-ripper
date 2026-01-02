@@ -168,6 +168,7 @@ async def _scan_posts_cached(
         cache_json: dict[str, ScannedPost] = {}
         try:
             cache_json.update(json.load(inout_file_cache))
+            Log.debug(f'Cache file contains {len(cache_json):d} entries!')
             for cache_key_r, cache_entry in cache_json.items():
                 if Config.force_cache and cache_key_r in links_dict:
                     cached[cache_key_r] = cache_entry
