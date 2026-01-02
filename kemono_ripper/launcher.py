@@ -22,7 +22,7 @@ from .logger import Log
 from .util import HTTP_PREFIX, HTTPS_PREFIX
 from .validators import valid_post_url
 
-__all__ = ('launch',)
+__all__ = ('config_create', 'launch')
 
 
 def _need_convert_to_scan_result(post: ListedPost | SearchedPost):
@@ -344,7 +344,7 @@ async def _config_write(config_path: pathlib.Path, *, use_backup=False) -> None:
 async def config_create(*_) -> None:
     config_path = Config.default_config_path()
     if config_path.is_file():
-        ans = 'q'
+        ans = 'n' if Config.noconfirm else 'q'
         while ans not in 'YyNn10':
             ans = input(f'File \'{config_path.name}\' already exists! Overwrite? [y/N] ')
         if ans in 'Nn0':

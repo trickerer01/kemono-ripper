@@ -135,6 +135,7 @@ class BaseConfig:
         self.extra_cookies: list[tuple[str, str]] | None = None
         # extra (not configurable)
         self.nodelay: bool = False
+        self.noconfirm: bool = True
 
     def _reset(self) -> None:
         self.__init__()  # noqa: PLC2801
