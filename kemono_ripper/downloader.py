@@ -246,7 +246,7 @@ class KemonoDownloader:
             filtered = len([_ for _ in results if _ == DownloadResult.FAIL_FILTERED_OUTER])
             unsupported = len([_ for _ in results if _ == DownloadResult.FAIL_UNSUPPORTED])
             external = len([_ for _ in results if _ == DownloadResult.HANDLED_EXTERNALLY])
-            if len(results) > unsupported:
+            if len(results) > unsupported or not results:
                 Log.info(f'[queue] post {pid}: Done: {len(post.links):d} links: {success:d} downloaded, {fail_tries:d} failed,'
                          f' {skipped:d} skipped, {filtered:d} filtered out, {exists:d} already exists, {fail_404:d} not found,'
                          f' {unsupported:d} unsupported, {external:d} handled externally')
