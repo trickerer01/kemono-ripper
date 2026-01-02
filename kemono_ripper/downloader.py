@@ -60,7 +60,7 @@ class ExternalURLHandler(Protocol):
     _semaphore: Semaphore
 
     @staticmethod
-    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]: ...
+    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path | None]: ...
 
     @staticmethod
     def name() -> str: ...
@@ -73,7 +73,7 @@ class DirectLinkHandler:
     _semaphore: Semaphore  # unused
 
     @staticmethod
-    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
+    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path | None]:
         async with DirectLinkDownloader([str(url)], config) as direct_downloader:
             return await direct_downloader.run()
 
@@ -105,7 +105,7 @@ class MegaURLHandler:
     _semaphore: Semaphore = Semaphore(1)
 
     @staticmethod
-    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
+    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path | None]:
         async with MegaURLHandler._semaphore:
             return await handler_mega.MegaDownloader([str(url)], config).run()
 
@@ -122,7 +122,7 @@ class MediafireURLHandler:
     _semaphore: Semaphore = Semaphore(1)
 
     @staticmethod
-    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
+    async def run(url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path | None]:
         async with MediafireURLHandler._semaphore:
             return await handler_mediafire.MediafireDownloader([str(url)], config).run()
 
@@ -165,7 +165,7 @@ class ExternalURLDownloader:
             import traceback
             Log.warn(f'{traceback.format_exc(limit=0)}\n{plink_id} \'{dhandler.app_name()}\': probe of {self._url!s} has failed!')
 
-    async def download(self, plink_id: str, url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path]:
+    async def download(self, plink_id: str, url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path | None]:
         try:
             assert self.valid() or self._probed
             mresults = await self._handler.run(url, config)
@@ -331,7 +331,7 @@ class KemonoDownloader:
             Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
             plink.status.state = State.DOWNLOADING
             mresults = await handler_ex.download(plink_id, url, handler_config)
-            succ_count = len([_.is_file() for _ in mresults])
+            succ_count = len([isinstance(_, pathlib.Path) and _.is_file() for _ in mresults])
             Log.info(f'{plink_id}: {handler_ex.app_name()} handled {url_str} with {succ_count:d} / {len(mresults):d} success')
             dresult = DownloadResult.HANDLED_EXTERNALLY
         elif link_supported:

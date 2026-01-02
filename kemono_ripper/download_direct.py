@@ -81,7 +81,7 @@ class DirectLinkDownloader:
         response = await self._session.request('GET', url, **kwargs)
         return response
 
-    async def _download(self, url: URL, output_path: pathlib.Path) -> pathlib.Path:
+    async def _download(self, url: URL, output_path: pathlib.Path) -> pathlib.Path | None:
         if self._download_mode != DownloadMode.FULL:
             if self._download_mode == DownloadMode.TOUCH:
                 output_path.touch(exist_ok=True)
@@ -170,7 +170,7 @@ class DirectLinkDownloader:
                 continue
 
         Log.error(f'Unable to connect. Aborting {local_path}')
-        return pathlib.Path()
+        return None
 
     async def _probe(self, url: URL, probe_func: Callable[[str], bool]) -> URLProbeResult:
         if self._session is None:
@@ -237,13 +237,13 @@ class DirectLinkDownloader:
             SupportedExternalWebsites.WebmShare,
         )
 
-    async def run(self) -> list[pathlib.Path]:
+    async def run(self) -> list[pathlib.Path | None]:
         tasks = []
         for link in self._links:
             url = URL(link)
             tasks .append(create_task(self._download(url, self._dest_base / url.name)))
 
-        results: tuple[pathlib.Path | BaseException, ...] = await gather(*tasks)
+        results: tuple[pathlib.Path | BaseException | None, ...] = await gather(*tasks)
         Log.info(f'Downloaded {len([c for c in results if isinstance(c, pathlib.Path)])} / {len(tasks)} files')
         return list(results)
 
