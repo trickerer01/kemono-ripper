@@ -303,12 +303,15 @@ async def post_rip_file(kemono: Kemono) -> None:
 async def post_tag_dump(kemono: Kemono) -> None:
     results = await kemono.list_tags()
     results_sorted = sorted(results, key=lambda t: t['tag'].lower())
-    with open(Config.dest_base / POST_TAGS_NAME_DEFAULT, 'wt', encoding=UTF8, newline='\n') as outfile_post_tags:
+    tags_file_path = Config.dest_base / POST_TAGS_NAME_DEFAULT
+    Log.info(f'Writing tags to {tags_file_path.as_posix()}...')
+    with open(tags_file_path, 'wt', encoding=UTF8, newline='\n') as outfile_post_tags:
         json.dump(
             [(tag['tag'], tag['post_count']) for tag in results_sorted] if Config.prune else results_sorted,
             outfile_post_tags, ensure_ascii=False, indent=Config.indent,
         )
         outfile_post_tags.write('\n')
+    Log.info('Done')
 
 
 async def _config_write(config_path: pathlib.Path, *, use_backup=False) -> None:  # noqa RUF029
