@@ -264,8 +264,9 @@ def add_filtering_args(par: ArgumentParser, add_search_filters: bool, add_downlo
 
 def add_caching_args(par: ArgumentParser) -> None:
     ca = par.add_argument_group(title='caching options')
-    ca.add_argument('--skip-cache', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_CACHE_SKIP)
-    ca.add_argument('--force-cache', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_CACHE_FORCE)
+    ca_m = ca.add_mutually_exclusive_group(required=False)
+    ca_m.add_argument('--skip-cache', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_CACHE_SKIP)
+    ca_m.add_argument('--force-cache', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_CACHE_FORCE)
 
 
 def add_logging_args(par: ArgumentParser) -> None:
