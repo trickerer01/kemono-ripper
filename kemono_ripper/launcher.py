@@ -322,11 +322,11 @@ async def _config_write(config_path: pathlib.Path, *, use_backup=False) -> None:
                     Log.debug(f'Saving backup to \'{backup_file_path.as_posix()}\'...')
                     with open(backup_file_path, 'wt', encoding=UTF8, newline='\n') as outfile_backup:
                         json.dump(backup_json, outfile_backup, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
-                    inout_file_config.flush()
-                    inout_file_config.seek(0)
-                    inout_file_config.truncate()
                 else:
                     json_to_save = Config.to_json()
+                inout_file_config.flush()
+                inout_file_config.seek(0)
+                inout_file_config.truncate()
                 json.dump(json_to_save, inout_file_config, ensure_ascii=False, indent=Config.indent, cls=PathURLJSONEncoder)
                 inout_file_config.write('\n')
             # if backup_file_path and backup_file_path.is_file():
