@@ -46,7 +46,7 @@ def extract_link_name(url: URL) -> str:
 def is_link_supported(url: URL) -> bool:
     if '.'.join(url.host.split('.')[-2:]) in APIAddress.__args__:
         return True
-    return DirectLinkDownloader.is_link_supported(url)
+    return DirectLinkDownloader.is_link_supported(url) or DirectLinkDownloader.is_link_supported(DirectLinkDownloader.normalize_link(url))
 
 
 def is_link_extension_supported(ext: str) -> bool:
@@ -185,7 +185,10 @@ def gather_post_info(
                 link_base = next_api_address().with_path(f'data{link_base.path}')
                 Log.trace(f'Fixing link with no host -> \'{link_base!s}\'')
             if DirectLinkDownloader.is_link_supported(link_base):
-                link_base = DirectLinkDownloader.normalize_link(link_base)
+                link_norm = DirectLinkDownloader.normalize_link(link_base)
+                if link_norm != link_base:
+                    Log.debug(f'Normalized link {link_base!s} -> {link_norm!s}')
+                    link_base = link_norm
             if link_base.host not in APIAddress.__args__ and Config.no_external_links:
                 Log.warn(f'[{user}:{pid}] {title}: skipping {link_base} due to \'--no-external-links\' flag!')
                 continue
