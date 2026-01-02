@@ -42,11 +42,11 @@ def at_startup(args: Sequence[str]) -> None:
     Log.debug(f'Python {sys.version}\n{APP_NAME} ver {APP_VERSION}\nCommand-line args: {" ".join(sys.argv)}\n')
 
 
-async def autopick_config() -> None:
+async def autopick_config(args: Sequence[str]) -> None:
     base_config_path = Config.default_config_path()
     Log.debug(f'Looking for {CONFIG_NAME_DEFAULT}...')
 
-    if not base_config_path.is_file() and not (len(sys.argv) >= 3 and ' '.join(sys.argv[1:3]) == 'config create'):
+    if not base_config_path.is_file() and not (len(args) >= 2 and ' '.join(args[0:2]) == 'config create'):
         Log.warn(f'Warning: config file \'{CONFIG_NAME_DEFAULT}\' is not found in \'{base_config_path.parent.as_posix()}\'!')
         Log.debug(f'Creating {CONFIG_NAME_DEFAULT}...')
         prepare_arglist(('config', 'create'))
@@ -88,7 +88,7 @@ def make_kemono_options() -> KemonoOptions:
 
 async def main(args: Sequence[str]) -> int:
     try:
-        await autopick_config()
+        await autopick_config(args)
         prepare_arglist(args)
     except HelpPrintExitException:
         return 0
