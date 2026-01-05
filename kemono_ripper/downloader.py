@@ -20,7 +20,7 @@ from typing import Final, Protocol
 
 from yarl import URL
 
-from .analyzer import is_link_extension_supported, is_link_supported
+from .analyzer import is_link_extension_supported, is_link_native, is_link_supported
 from .api import (
     DownloadFlags,
     DownloadMode,
@@ -331,16 +331,25 @@ class KemonoDownloader:
         plink.status.state = State.SCANNING
         url = plink.url
         url_str = str(url)
+        link_native = is_link_native(url)
+        link_skipped = bool(
+            (Config.skip_external and not link_native) or
+            (Config.skip_completed and (plink.status.flags & DownloadFlags.COMPLETED))
+        )
         link_supported = is_link_supported(url)
         handler_ex = ExternalURLDownloader(url)
         handler_config = ExternalURLHandlerConfig(Config, url.host, dest_base=plink.path)
         handler_valid = handler_ex.valid()
-        if handler_valid is False and link_supported is False and Config.probe_unknown_links and is_link_extension_supported(url.suffix):
+        if (not handler_valid and not link_supported and not link_skipped and Config.probe_unknown_links
+           and is_link_extension_supported(url.suffix)):
             handler_config.proxy = ''  # assume unknown link is reachable always
             presult = await handler_ex.probe(plink_id, url, handler_config, is_link_extension_supported)
             if presult.suffix and presult.size > 0:
                 handler_valid = True
-        if handler_valid:
+        if link_skipped:
+            Log.warn(f'{plink_id}: Skipping link {url_str} due to \'--skip-{"external" if not link_native else "completed"}\' flag!')
+            dresult = DownloadResult.FAIL_SKIPPED
+        elif handler_valid:
             Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
             plink.status.state = State.DOWNLOADING
             mresults = await handler_ex.download(plink_id, url, handler_config)
@@ -352,7 +361,7 @@ class KemonoDownloader:
                 else DownloadResult.FAIL_RETRIES
             )
         elif link_supported:
-            Log.info(f'{plink_id} Processing {url_str} => {plink.local_path}')
+            Log.info(f'{plink_id}: Processing {url_str} => {plink.local_path}')
             plink.status.state = State.DOWNLOADING
             await self.add_to_writes(post, plink, True)
             ec = await self._kemono.download_url(post, plink)
@@ -374,7 +383,7 @@ class KemonoDownloader:
                 else DownloadResult.FAIL_RETRIES
             )
         else:
-            Log.warn(f'{plink_id}: Skipping link {url_str}...')
+            Log.warn(f'{plink_id}: Skipping unsupported link {url_str}...')
             dresult = DownloadResult.FAIL_UNSUPPORTED
         await self._at_post_link_finish(post, plink, dresult)
 

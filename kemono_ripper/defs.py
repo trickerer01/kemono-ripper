@@ -143,7 +143,8 @@ HELP_ARG_FILTER_POST_DATE_RANGE = 'Post date range in format YYYY-MM-DD. Example
 HELP_ARG_FILTER_USER_ID = 'User id pattern. Most user ids are numeric but any pattern is allowed. Example: \'--nouser 27361892\''
 HELP_ARG_FILTER_FILEEXT = 'Only download files with given extensions. Can be used multiple times. Example: \'--ext .mp4 --ext .png\''
 HELP_ARG_FILTER_FILENAME = 'Only download files mathing given name pattern'
-HELP_ARG_NO_EXTERNAL_LINKS = 'Skip all external links'
+HELP_ARG_SKIP_EXTERNAL = 'Skip all external links'
+HELP_ARG_SKIP_COMPLETED = 'Skip all completed (previously downloaded) links'
 
 
 class NumRange(NamedTuple):

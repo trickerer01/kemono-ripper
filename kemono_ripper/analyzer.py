@@ -24,7 +24,7 @@ from .formatter import format_path
 from .logger import Log
 from .util import sanitize_path
 
-__all__ = ('extract_link_name', 'gather_post_info', 'is_link_extension_supported', 'is_link_supported')
+__all__ = ('extract_link_name', 'gather_post_info', 'is_link_extension_supported', 'is_link_native', 'is_link_supported')
 
 SUPPORTED_TAGS = (
     ('a', 'href'),
@@ -53,9 +53,7 @@ def is_link_native(url: URL) -> bool:
 
 
 def is_link_supported(url: URL) -> bool:
-    if is_link_native(url):
-        return True
-    return DirectLinkDownloader.is_link_supported(url) or DirectLinkDownloader.is_link_supported(DirectLinkDownloader.normalize_link(url))
+    return is_link_native(url)
 
 
 def is_link_extension_supported(ext: str) -> bool:
@@ -193,9 +191,6 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
                 if link_norm != link_base:
                     Log.debug(f'Normalized link {link_base!s} -> {link_norm!s}')
                     link_base = link_norm
-            if not is_link_native(link_base) and Config.no_external_links:
-                Log.warn(f'[{user}:{pid}] {title}: skipping {link_base} due to \'--no-external-links\' flag!')
-                continue
             if not pathlib.Path(name).suffix:
                 name = f'{name}{link_base.suffix}'
 

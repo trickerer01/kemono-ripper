@@ -32,7 +32,6 @@ from .defs import (
     HELP_ARG_INDENT,
     HELP_ARG_LOGGING,
     HELP_ARG_MAXJOBS,
-    HELP_ARG_NO_EXTERNAL_LINKS,
     HELP_ARG_NOCOLORS,
     HELP_ARG_PATH,
     HELP_ARG_PATH_FORMAT,
@@ -47,6 +46,8 @@ from .defs import (
     HELP_ARG_SAME_CREATOR,
     HELP_ARG_SEARCH_STRING,
     HELP_ARG_SERVICE,
+    HELP_ARG_SKIP_COMPLETED,
+    HELP_ARG_SKIP_EXTERNAL,
     HELP_ARG_TIMEOUT,
     HELP_ARG_VERSION,
     JSON_INDENT_DEFAULT,
@@ -243,7 +244,8 @@ def add_common_args(par: ArgumentParser) -> None:
     do.add_argument('-f', '--path-format', default=None, help=HELP_ARG_PATH_FORMAT, type=valid_path_format)
     do.add_argument('-d', '--download-mode', default=DM_DEFAULT, help=HELP_ARG_DMMODE, choices=DOWNLOAD_MODES)
     do.add_argument('-j', '--max-jobs', metavar='#number', default=None, help=HELP_ARG_MAXJOBS, type=valid_maxjobs)
-    do.add_argument('--no-external-links', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_NO_EXTERNAL_LINKS)
+    do.add_argument('--skip-completed', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_SKIP_COMPLETED)
+    do.add_argument('--skip-external', default=None, action=ACTION_STORE_TRUE, help=HELP_ARG_SKIP_EXTERNAL)
 
 
 def add_filtering_args(par: ArgumentParser, add_search_filters: bool, add_download_filters: bool) -> None:
@@ -487,7 +489,8 @@ def prepare_arglist(args: Sequence[str]) -> None:
         'path_format': valid_path_format(PATH_FORMAT_DEFAULT),
         'log_level': log_level(LOGGING_DEFAULT.name.lower()),
         'disable_log_colors': False,
-        'no_external_links': False,
+        'skip_external': False,
+        'skip_completed': False,
         'timeout': valid_timeout(''),
         'retries': CONNECT_RETRIES_BASE,
     }
