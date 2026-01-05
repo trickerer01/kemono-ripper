@@ -134,7 +134,6 @@ class Cache:
         if not queries:
             return
         assert Cache._db
-        Log.debug(f'Executing:\n{queries[0][0]}\nwith:\n{", ".join(str(_) for _ in queries[0][1])}\n...')
         with Cache._db:
             [Cache._db.executemany(query, params) for query, params in queries]
 
@@ -148,15 +147,13 @@ class Cache:
     async def get_post_info_cache(post_ids_: Iterable[str]) -> list[PostInfo]:
         post_ids = ','.join(post_ids_)
         presults = await Cache._query(
-            f'SELECT {",".join(_.name for _ in PostInfo.sql_schema.columns)} '
-            'FROM `cache_post` '
-            'WHERE `post_id` IN (?)',
-            (post_ids,))
+            'SELECT {columns} FROM `cache_post` '
+            'WHERE `post_id` IN ({ids})'
+            .format(columns=','.join(_.name for _ in PostInfo.sql_schema.columns), ids=post_ids), ())
         plresults = await Cache._query(
-            f'SELECT {",".join(_.name for _ in PostLinkInfo.sql_schema.columns)} '
-            'FROM `cache_post_link` '
-            'WHERE `post_id` IN (?) ORDER BY `post_id`',
-            (post_ids,))
+            'SELECT {columns} FROM `cache_post_link` '
+            'WHERE `post_id` IN ({ids}) ORDER BY `post_id`'
+            .format(columns=','.join(_.name for _ in PostLinkInfo.sql_schema.columns), ids=post_ids), ())
         post_links: dict[str, list[PostLinkInfo]] = defaultdict(list[PostLinkInfo])
         for plr in plresults:
             post_links[plr[0]].append(
@@ -205,8 +202,9 @@ class Cache:
 
     @staticmethod
     async def clear_post_info_cache(post_ids_: Iterable[str]) -> None:
-        await Cache._execute_one(('DELETE FROM `cache_post` WHERE `post_id` IN (?)', (*post_ids_,)))
-        await Cache._execute_one(('DELETE FROM `cache_post_link` WHERE `post_id` IN (?)', (*post_ids_,)))
+        post_ids = ','.join(post_ids_)
+        await Cache._execute_one((f'DELETE FROM `cache_post` WHERE `post_id` IN ({post_ids})', ()))
+        await Cache._execute_one((f'DELETE FROM `cache_post_link` WHERE `post_id` IN ({post_ids})', ()))
 
 #
 #
