@@ -12,6 +12,8 @@ import pathlib
 from enum import Enum, IntEnum
 from typing import Any, NamedTuple
 
+from .version import APP_NAME
+
 
 class PathURLJSONEncoder(json.JSONEncoder):
     def default(self, o: Any) -> str:
@@ -26,7 +28,7 @@ MIN_PYTHON_VERSION_STR = f'{MIN_PYTHON_VERSION[0]:d}.{MIN_PYTHON_VERSION[1]:d}'
 CREATORS_NAME_DEFAULT = 'creators.json'
 POST_TAGS_NAME_DEFAULT = 'post_tags.json'
 CONFIG_NAME_DEFAULT = 'settings.json'
-CACHE_SCANNED_NAME_DEFAULT = 'cache_scan.json'
+CACHE_DB_NAME_DEFAULT = f'{APP_NAME}.db'
 POST_TAGS_PER_POST_INFO_NAME_DEFAULT = '!info.json'
 POST_DONE_FILE_NAME_DEFAULT = 'done'
 FILE_NAME_FULL_MAX_LEN = 220

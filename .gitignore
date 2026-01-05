@@ -5,6 +5,7 @@
 *.lnk
 *.exe
 *.bak
+*.db
 !setup.cfg
 
 # IDE

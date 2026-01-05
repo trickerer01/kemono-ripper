@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
 from .api import DownloadMode, Kemono, KemonoAPIError, KemonoOptions
+from .cache import Cache
 from .cmdargs import HelpPrintExitException, parse_logging_args, prepare_arglist
 from .config import Config
 from .defs import CONFIG_NAME_DEFAULT, MIN_PYTHON_VERSION, MIN_PYTHON_VERSION_STR, UTF8
@@ -96,7 +97,7 @@ async def main(args: Sequence[str]) -> int:
     try:
         kemono = Kemono(make_kemono_options())
         async with AsyncExitStack() as ctx:
-            [await ctx.enter_async_context(_) for _ in (kemono,)]
+            [await ctx.enter_async_context(_) for _ in (kemono, Cache())]
             await launch(kemono)
         return ErrorCodes.SUCCESS
     except Exception as e:

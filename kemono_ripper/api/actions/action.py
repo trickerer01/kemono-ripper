@@ -19,8 +19,8 @@ from kemono_ripper.api.types import (
     APIRequestData,
     APIRequestParams,
     APIResponse,
-    PostDownloadInfo,
-    PostLinkDownloadInfo,
+    PostInfo,
+    PostLinkInfo,
 )
 
 
@@ -75,14 +75,14 @@ class APIDownloadAction(APIAction):
     """
     Download actions can be executed in parallel, up to {MAX_JOBS} at a time
     """
-    _post: PostDownloadInfo
-    _post_link: PostLinkDownloadInfo
+    _post: PostInfo
+    _post_link: PostLinkInfo
 
-    def __init__(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
+    def __init__(self, post: PostInfo, plink: PostLinkInfo) -> None:
         self._setup(post, plink)
         super().__init__()
 
-    def _setup(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> None:
+    def _setup(self, post: PostInfo, plink: PostLinkInfo) -> None:
         self._method = 'GET'
         self._post = post
         self._post_link = plink
@@ -97,11 +97,11 @@ class APIDownloadAction(APIAction):
         return self._post_link.url
 
     @property
-    def post(self) -> PostDownloadInfo:
+    def post(self) -> PostInfo:
         return self._post
 
     @property
-    def post_link(self) -> PostLinkDownloadInfo:
+    def post_link(self) -> PostLinkInfo:
         return self._post_link
 
     def __str__(self) -> str:

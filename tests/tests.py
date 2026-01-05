@@ -83,7 +83,7 @@ class CmdTests(TestCase):
             main_sync(arglist1)
         print(f'{self._testMethodName} passed')
 
-    @test_prepare(True)
+    @test_prepare()
     def test_cmd_command_cd(self):
         if not RUN_CONN_TESTS:
             return
@@ -93,7 +93,7 @@ class CmdTests(TestCase):
             main_sync(arglist1)
         print(f'{self._testMethodName} passed')
 
-    @test_prepare(True)
+    @test_prepare()
     def test_cmd_command_cr(self):
         if not RUN_CONN_TESTS:
             return

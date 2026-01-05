@@ -9,9 +9,9 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 import datetime
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Final, Literal, Protocol, TypeAlias
+from typing import Final, Literal, Protocol
 
-from .api import ListedPost, Mem, PostDownloadInfo, PostLinkDownloadInfo, ScannedPost, SearchedPost
+from .api import Mem, PostInfo, PostLinkInfo
 from .config import Config
 from .defs import FMT_DATE, DateRange, NumRange
 from .util import build_regex_from_pattern
@@ -27,7 +27,7 @@ class FileSizeFilter:
     def __init__(self, irange: NumRange) -> None:
         self._range = irange
 
-    def filters_out(self, _post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> bool:
+    def filters_out(self, _post: PostInfo, plink: PostLinkInfo) -> bool:
         file_size = len(plink.path.as_posix())
         file_size /= FileSizeFilter.resolution
         return not self._range.min <= file_size <= self._range.max
@@ -43,7 +43,7 @@ class FileNameFilter:
     def __init__(self, pattern: str) -> None:
         self._regex = build_regex_from_pattern(pattern)
 
-    def filters_out(self, _post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> bool:
+    def filters_out(self, _post: PostInfo, plink: PostLinkInfo) -> bool:
         file_name = plink.path.name
         return self._regex.fullmatch(file_name) is None
 
@@ -52,13 +52,12 @@ class FileNameFilter:
 
 
 # Downloader
-LSPost: TypeAlias = ScannedPost | SearchedPost | ListedPost
 
 
-class LSPostFilter(Protocol):
+class PostInfoFilter(Protocol):
     _last_filtered: str
 
-    def filters_out(self, post: LSPost) -> bool: ...
+    def filters_out(self, post: PostInfo) -> bool: ...
     def close(self) -> None: ...
     def __str__(self) -> str: ...
 
@@ -72,11 +71,11 @@ class UserIdFilter:
         self._last_filtered = ''
 
     @abstractmethod
-    def filters_out(self, post: LSPost) -> bool:
-        user: str = post.get('post', post)['user']
+    def filters_out(self, post: PostInfo) -> bool:
+        creator_id: str = post.creator_id
         for pattern in self._patterns:
-            if pattern.fullmatch(user.lower()):
-                self._last_filtered = user
+            if pattern.fullmatch(creator_id.lower()):
+                self._last_filtered = creator_id
                 return True
         return False
 
@@ -95,8 +94,8 @@ class PostIdFilter:
     def close(self) -> None:
         self._last_filtered = ''
 
-    def filters_out(self, post: LSPost) -> bool:
-        post_id: str = post.get('post', post)['id']
+    def filters_out(self, post: PostInfo) -> bool:
+        post_id: str = post.post_id
         if post_id.isnumeric() and not self._range.min <= int(post_id) <= self._range.max:
             self._last_filtered = post_id
             return True
@@ -115,13 +114,12 @@ class PostDateFilterBase(ABC):
         self._last_filtered = ''
 
     @abstractmethod
-    def filters_out(self, post: LSPost) -> bool: ...
+    def filters_out(self, post: PostInfo) -> bool: ...
 
-    def filters_out_by_date_type(self, post: LSPost, date_type_str: Literal['published', 'added', 'edited']) -> bool:
-        dpost: SearchedPost | ListedPost = post.get('post', post)
-        assert date_type_str in dpost, f'[{self!s}] Post {dpost!s} doesn\'t have required field \'{date_type_str}\'!'
+    def filters_out_by_date_type(self, post: PostInfo, date_type_str: Literal['published', 'added', 'edited']) -> bool:
+        assert date_type_str in post._fields, f'[{self!s}] Post {post!s} doesn\'t have required field \'{date_type_str}\'!'
         try:
-            date_type_date = datetime.datetime.fromisoformat(dpost[date_type_str]).date()
+            date_type_date = datetime.datetime.fromisoformat(getattr(post, date_type_str)).date()
         except TypeError:
             return False
         if not self._range.mindate <= date_type_date <= self._range.maxdate:
@@ -138,7 +136,7 @@ class PostDatePublishedFilter(PostDateFilterBase):
     """
     Filters posts by post published date
     """
-    def filters_out(self, post: LSPost) -> bool:
+    def filters_out(self, post: PostInfo) -> bool:
         return self.filters_out_by_date_type(post, 'published')
 
 
@@ -146,7 +144,7 @@ class PostDateImportedFilter(PostDateFilterBase):
     """
     Filters posts by post imported date
     """
-    def filters_out(self, post: LSPost) -> bool:
+    def filters_out(self, post: PostInfo) -> bool:
         return self.filters_out_by_date_type(post, 'added')
 
 
@@ -159,8 +157,8 @@ class PostTagsFilter:
         self._last_filtered = ''
 
     @abstractmethod
-    def filters_out(self, post: LSPost) -> bool:
-        post_tags: list[str] = post.get('post', post).get('tags', [])
+    def filters_out(self, post: PostInfo) -> bool:
+        post_tags: list[str] = post.tags or []
         if post_tags:
             for pattern in self._patterns:
                 for tag in post_tags:
@@ -174,7 +172,7 @@ class PostTagsFilter:
 
 
 class PostLinkFilter(Protocol):
-    def filters_out(self, plink: PostLinkDownloadInfo) -> bool: ...
+    def filters_out(self, plink: PostLinkInfo) -> bool: ...
     def __str__(self) -> str: ...
 
 
@@ -189,7 +187,7 @@ class PostLinkExtFilter:
     def close(self) -> None:
         self._last_filtered = ''
 
-    def filters_out(self, plink: PostLinkDownloadInfo) -> bool:
+    def filters_out(self, plink: PostLinkInfo) -> bool:
         if plink.path.suffix and plink.path.suffix not in self._extensions:
             self._last_filtered = plink.path.name
             return True
@@ -199,14 +197,14 @@ class PostLinkExtFilter:
         return f'{self.__class__.__name__}<\'{self._last_filtered}\' <- {self._extensions!s}>'
 
 
-def any_filter_matching_ls_post(post: LSPost, filters: Iterable[LSPostFilter | None]) -> LSPostFilter | None:
+def any_filter_matching_post_info(pinfo: PostInfo, filters: Iterable[PostInfoFilter | None]) -> PostInfoFilter | None:
     for ffilter in filters:
-        if ffilter and ffilter.filters_out(post):
+        if ffilter and ffilter.filters_out(pinfo):
             return ffilter
     return None
 
 
-def make_lspost_filters() -> list[LSPostFilter | None]:
+def make_post_info_filters() -> list[PostInfoFilter]:
     filters = [
         UserIdFilter(Config.filter_user_id) if Config.filter_user_id else None,
         PostIdFilter(Config.filter_post_ids) if Config.filter_post_ids else None,
@@ -217,7 +215,7 @@ def make_lspost_filters() -> list[LSPostFilter | None]:
     return filters
 
 
-def any_filter_matching_post_link(plink: PostLinkDownloadInfo, filters: Iterable[PostLinkFilter | None]) -> PostLinkFilter | None:
+def any_filter_matching_post_link(plink: PostLinkInfo, filters: Iterable[PostLinkFilter | None]) -> PostLinkFilter | None:
     for ffilter in filters:
         if ffilter and ffilter.filters_out(plink):
             return ffilter

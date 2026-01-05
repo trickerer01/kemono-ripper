@@ -14,6 +14,7 @@ class KemonoErrorCodes(IntEnum):
     EEXISTS = 1
     ENOTFOUND = -1
     ECONNECT = -2
+    ESIZE = -3
 
     def __str__(self) -> str:
         return f'{self.name} ({self.value:d})'
@@ -24,6 +25,7 @@ KEMONO_ERROR_DESCRIPTION: dict[KemonoErrorCodes, tuple[str, str]] = {
     KemonoErrorCodes.EEXISTS: ('EEXISTS', 'File already exists'),
     KemonoErrorCodes.ENOTFOUND: ('ENOTFOUND', 'No post, creator or file exists at pointed URL'),
     KemonoErrorCodes.ECONNECT: ('ECONNECT', 'General connection error'),
+    KemonoErrorCodes.ESIZE: ('ESIZE', 'Downloaded file size mismatch'),
 }
 
 

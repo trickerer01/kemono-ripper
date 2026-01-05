@@ -11,8 +11,8 @@ from __future__ import annotations
 import pathlib
 import random
 import sys
-from asyncio import Semaphore, gather, sleep
-from collections.abc import Iterable
+from asyncio import Future, Semaphore, as_completed, sleep
+from collections.abc import Awaitable, Callable, Iterable
 
 from aiofile import async_open
 from aiohttp import ClientConnectorError, ClientPayloadError, ClientResponse, ClientSession, ClientTimeout, TCPConnector
@@ -44,8 +44,8 @@ from .types import (
     Creator,
     FreePost,
     ListedPost,
-    PostDownloadInfo,
-    PostLinkDownloadInfo,
+    PostInfo,
+    PostLinkInfo,
     PostListedTag,
     PostPageScanResult,
     ScannedPost,
@@ -190,18 +190,18 @@ class Kemono:
                     content_range = int(content_range_s[1]) if len(content_range_s) > 1 and content_range_s[1].isnumeric() else 1
                     if (content_len == 0 or r.status == 416) and file_size >= content_range:
                         Log.warn(f'{local_path} is already completed, size: {file_size:d} ({file_size / Mem.MB:.2f} Mb)')
-                        action.post_link.status.expected_size = file_size
+                        action.post_link.status.size = file_size
                         return KemonoErrorCodes.EEXISTS
                     if r.status == 404:
                         Log.error(f'Got 404 for {action.get_url()!s}...!')
                         # try_num = self._retries
                         raise RequestError(KemonoErrorCodes.ENOTFOUND)
                     r.raise_for_status()
-                    action.post_link.status.expected_size = file_size + content_len
+                    action.post_link.status.size = file_size + content_len
                     assert content_len > 0, f'Content length is {r.content_length!s} for {action.get_url()!s}! Retrying...'
                     action.post_link.path.parent.mkdir(parents=True, exist_ok=True)
                     start_str = f' <continuing at {file_size:d}>' if file_size else ''
-                    total_str = f' / {action.post_link.status.expected_size / Mem.MB:.2f}' if file_size else ''
+                    total_str = f' / {action.post_link.status.size / Mem.MB:.2f}' if file_size else ''
                     Log.info(f'[{self.api_address}] Saving{start_str} {action.post_link.name}'
                              f' {content_len / Mem.MB:.2f}{total_str} Mb to {local_path}')
                     async with async_open(action.post_link.path, 'ab') as output_file:
@@ -235,14 +235,22 @@ class Kemono:
         post: ScannedPost = await self._query_api(GetCreatorPostAction(self._api_address, link.service, creator_id, link.post_id))
         return post
 
-    async def scan_posts(self, links: Iterable[PostPageScanResult]) -> list[ScannedPost]:
-        async def scan_post_wrapper(plink: PostPageScanResult) -> ScannedPost:
+    async def scan_posts(
+        self,
+        links: Iterable[PostPageScanResult],
+        post_info_generator: Callable[[Iterable[ScannedPost], APIAddress], Awaitable[list[PostInfo]]],
+    ) -> list[PostInfo]:
+        async def scan_post_wrapper(plink: PostPageScanResult) -> list[PostInfo]:
             async with semaphore:
-                return await self._scan_post(plink)
+                return await post_info_generator((await self._scan_post(plink),), self.api_address)
 
         semaphore = Semaphore(self._max_jobs)
         tasks = [scan_post_wrapper(_) for _ in links]
-        scanned_posts: list[ScannedPost] = list(await gather(*tasks))
+        scanned_posts: list[PostInfo] = []
+        ct: Future[list[PostInfo]]
+        for ct in as_completed(tasks):
+            result = await ct
+            scanned_posts.extend(result)
         return scanned_posts
 
     async def list_creators(self) -> list[Creator]:
@@ -278,7 +286,7 @@ class Kemono:
         post_tags: list[PostListedTag] = await self._query_api(GetPostTagsAction(self._api_address))
         return post_tags
 
-    async def download_url(self, post: PostDownloadInfo, plink: PostLinkDownloadInfo) -> KemonoErrorCodes:
+    async def download_url(self, post: PostInfo, plink: PostLinkInfo) -> KemonoErrorCodes:
         result = await self._download(APIDownloadAction(post, plink))
         return result
 

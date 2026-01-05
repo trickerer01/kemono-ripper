@@ -27,7 +27,7 @@ class PostPageScanResult(NamedTuple):
     api_address: APIAddress
 
     def as_cache_key(self) -> str:
-        return f'{self.creator_id}:{self.post_id}:{self.service}'
+        return f'{self.post_id}:{self.service}'
 
 
 # Validated
@@ -217,14 +217,13 @@ class DownloadResult(IntEnum):
     FAIL_FILTERED_OUTER = 5
     FAIL_UNSUPPORTED = 6
     FAIL_NO_LINKS = 7
-    HANDLED_EXTERNALLY = 8
+    SUCCESS_PARTIAL = 8
     UNKNOWN = 255
 
     RESULT_MASK_ALL = ((1 << SUCCESS) | (1 << FAIL_NOT_FOUND) | (1 << FAIL_RETRIES) | (1 << FAIL_ALREADY_EXISTS) |
                        (1 << FAIL_SKIPPED) | (1 << FAIL_FILTERED_OUTER) | (1 << FAIL_UNSUPPORTED) | (1 << FAIL_NO_LINKS) |
-                       (1 << HANDLED_EXTERNALLY))
-    RESULT_MASK_CRITICAL = (RESULT_MASK_ALL & ~((1 << SUCCESS) | (1 << FAIL_SKIPPED) | (1 << FAIL_ALREADY_EXISTS) |
-                                                (1 << HANDLED_EXTERNALLY)))
+                       (1 << SUCCESS_PARTIAL))
+    RESULT_MASK_CRITICAL = (RESULT_MASK_ALL & ~((1 << SUCCESS) | (1 << FAIL_SKIPPED) | (1 << FAIL_ALREADY_EXISTS) | (1 << SUCCESS_PARTIAL)))
 
     def __str__(self) -> str:
         return f'{self.name} (0x{self.value:02X})'
@@ -251,22 +250,24 @@ class State(IntEnum):
 
 
 class DownloadFlags(IntEnum):
-    NONE = 0x0
-    ALREADY_EXISTED_EXACT = 0x1
-    ALREADY_EXISTED_SIMILAR = 0x2
-    FILE_WAS_CREATED = 0x4
-    RETURNED_404 = 0x8
+    NONE = 0x00
+    ALREADY_EXISTED_EXACT = 0x01
+    ALREADY_EXISTED_SIMILAR = 0x02
+    FILE_WAS_CREATED = 0x04
+    RETURNED_404 = 0x08
+    EXTERNAL_LINK = 0x10
+    COMPLETED = 0x20
 
 
 class DownloadStatus:
-    def __init__(self) -> None:
-        self.expected_size: int = 0
-        self.flags: DownloadFlags = DownloadFlags.NONE
-        self.result: DownloadResult = DownloadResult.UNKNOWN
-        self.state: State = State.NEW
+    def __init__(self, *, expected_size=0, flags=DownloadFlags.NONE, result=DownloadResult.UNKNOWN, state=State.NEW) -> None:
+        self.size = expected_size
+        self.flags = flags
+        self.result = result
+        self.state = state
 
     def __str__(self) -> str:
-        return f'state: {self.state!s}, result: {self.result!s}'
+        return f'state: {self.state!s}, flags: {self.flags!s}, result: {self.result!s}'
 
     __repr__ = __str__
 
@@ -276,7 +277,21 @@ class URLProbeResult(NamedTuple):
     size: int
 
 
-class PostLinkDownloadInfo(NamedTuple):
+class SQLColumn(NamedTuple):
+    name: str
+    data_type: Literal['TEXT', 'INTEGER', 'REAL', 'BLOB']
+    not_null: bool
+    default: str | None
+
+
+class SQLSchema(NamedTuple):
+    table_name: str
+    columns: tuple[SQLColumn, ...]
+    primary_key: tuple[str, ...] | tuple
+
+
+class PostLinkInfo(NamedTuple):
+    post_id: str
     name: str
     url: URL
     path: pathlib.Path
@@ -301,19 +316,35 @@ class PostLinkDownloadInfo(NamedTuple):
     def local_path(self) -> str:
         return self.local_path3
 
+    sql_schema = SQLSchema(
+        'cache_post_link',
+        (
+            SQLColumn('post_id', 'TEXT', True, None),
+            SQLColumn('name', 'TEXT', True, None),
+            SQLColumn('url', 'TEXT', True, None),
+            SQLColumn('path', 'TEXT', True, None),
+            SQLColumn('size', 'INTEGER', True, "'0'"),
+            SQLColumn('flags', 'INTEGER', True, "'0'"),
+        ),
+        ('post_id', 'name'))
 
-class PostDownloadInfo(NamedTuple):
+
+class PostInfo(NamedTuple):
     post_id: str
     creator_id: str
-    creator_name: str
     service: str
     title: str
+    imported: str | None
+    published: str | None
+    edited: str | None
     tags: list[str]
+    content: str
     dest: pathlib.Path
-    original_post: ScannedPost
-    links: dict[str, PostLinkDownloadInfo]
-    completed: list[PostLinkDownloadInfo]
+    links: list[PostLinkInfo]
     status: DownloadStatus
+
+    def as_cache_key(self) -> str:
+        return f'{self.post_id}:{self.service}'
 
     def get_local_path(self, levels: Literal[2, 3]) -> str:
         return '/'.join(('...', *self.dest.parts[-levels:]))
@@ -332,6 +363,30 @@ class PostDownloadInfo(NamedTuple):
 
     def __hash__(self) -> int:
         return hash((self.creator_id, self.post_id))
+
+    sql_schema = SQLSchema(
+        'cache_post',
+        (
+            SQLColumn('post_id', 'TEXT', True, None),
+            SQLColumn('creator_id', 'TEXT', True, None),
+            SQLColumn('service', 'TEXT', True, None),
+            SQLColumn('title', 'TEXT', True, None),
+            SQLColumn('imported', 'TEXT', False, None),
+            SQLColumn('published', 'TEXT', False, None),
+            SQLColumn('edited', 'TEXT', False, None),
+            SQLColumn('tags', 'TEXT', True, None),
+            SQLColumn('content', 'TEXT', True, None),
+            SQLColumn('dest', 'TEXT', True, "''"),
+            SQLColumn('flags', 'INTEGER', True, "'0'"),
+        ),
+        ('post_id',))
+
+
+class PCSDPost(TypedDict):
+    id: str
+    user: str
+    service: APIService
+    published: str
 
 #
 #

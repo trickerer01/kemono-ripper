@@ -14,11 +14,12 @@ from collections.abc import Iterable
 from bs4 import BeautifulSoup
 from yarl import URL
 
-from .api import APIAddress, DownloadStatus, PostDownloadInfo, PostLinkDownloadInfo, ScannedPost, ScannedPostPost
+from .api import APIAddress, DownloadFlags, DownloadStatus, PostInfo, PostLinkInfo, ScannedPost, ScannedPostPost
+from .cache import Cache
 from .config import Config
 from .defs import FILE_NAME_FULL_MAX_LEN, SupportedExternalWebsites
 from .download_direct import DirectLinkDownloader
-from .filters import any_filter_matching_ls_post, any_filter_matching_post_link, make_lspost_filters, make_post_link_filters
+from .filters import any_filter_matching_post_info, any_filter_matching_post_link, make_post_info_filters, make_post_link_filters
 from .formatter import format_path
 from .logger import Log
 from .util import sanitize_path
@@ -43,8 +44,16 @@ def extract_link_name(url: URL) -> str:
     return url.query.getone('f', url.name)
 
 
+def link_without_subdomain(url: URL) -> URL:
+    return url.with_host('.'.join(url.host.split('.')[-2:])) if url.host else url
+
+
+def is_link_native(url: URL) -> bool:
+    return link_without_subdomain(url).host in APIAddress.__args__
+
+
 def is_link_supported(url: URL) -> bool:
-    if '.'.join(url.host.split('.')[-2:]) in APIAddress.__args__:
+    if is_link_native(url):
         return True
     return DirectLinkDownloader.is_link_supported(url) or DirectLinkDownloader.is_link_supported(DirectLinkDownloader.normalize_link(url))
 
@@ -53,10 +62,7 @@ def is_link_extension_supported(ext: str) -> bool:
     return (ext or 'UNK') in SUPPORTED_EXTENSIONS
 
 
-def gather_post_info(
-    posts: Iterable[ScannedPost],
-    api_address: APIAddress,
-) -> list[PostDownloadInfo]:
+async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress) -> list[PostInfo]:
     def next_file_name(name_base: str) -> str:
         next_file_name.last_post_idx = getattr(next_file_name, 'last_post_idx', 0)
         if next_file_name.last_post_idx != spost_idx:
@@ -69,10 +75,10 @@ def gather_post_info(
         next_api_address.name_idx = (getattr(next_api_address, 'name_idx', random.randint(1, 99)) + random.randint(1, 99)) % 4 + 1
         return URL(f'https://n{next_api_address.name_idx:d}.{api_address}')
 
-    post_filters = make_lspost_filters()
+    post_filters = make_post_info_filters()
     link_filters = make_post_link_filters()
 
-    post_info: list[PostDownloadInfo] = []
+    post_infos: list[PostInfo] = []
     for spost_idx, spost in enumerate(posts):  # noqa B007  # stupid ruff
         post: ScannedPostPost = spost['post']
 
@@ -83,10 +89,9 @@ def gather_post_info(
         user = post['user']
         service = post['service']
         title = post['title']
-
-        if spfilter := any_filter_matching_ls_post(spost, post_filters):
-            Log.warn(f'[{user}:{pid}] {title}: post was filtered out by {spfilter!s}. Skipped!')
-            continue
+        imported = post['added'] or ''
+        published = post['published'] or ''
+        edited = post['edited'] or ''
 
         links_dict: dict[URL, str] = {}
 
@@ -134,7 +139,7 @@ def gather_post_info(
                     if '/' not in str(url):
                         Log.warn(f'[{user}:{pid}] {title}: found tag \'{tag_name}\' with no address: {bs_tag!s}. Skipped')
                         continue
-                    if (not url.is_absolute() or url.host in APIAddress.__args__) and url.path.startswith('/data'):
+                    if (not url.is_absolute() or is_link_native(url)) and url.path.startswith('/data'):
                         url = url.with_path(url.path[len('/data'):])
                     if url not in links_dict:
                         if not url.is_absolute():
@@ -169,11 +174,10 @@ def gather_post_info(
                 vurl = URL(video['path'])
                 links_dict.update({vurl: video['name']})
 
-        post_tags = post['tags'] or []
-        post_dest_base = format_path(post, Config.path_format)
-        post_dest = Config.dest_base.joinpath(post_dest_base)
+        tags = post['tags'] or []
+        dest = Config.dest_base.joinpath(format_path(post, Config.path_format))
 
-        links: dict[str, PostLinkDownloadInfo] = {}
+        links: dict[str, PostLinkInfo] = {}
         for link_base, name in links_dict.items():
             # check if MEGA links were properly parsed / fixed
             if link_base.host == SupportedExternalWebsites.Mega and len(link_base.path) + len(link_base.fragment) < 26:
@@ -189,23 +193,26 @@ def gather_post_info(
                 if link_norm != link_base:
                     Log.debug(f'Normalized link {link_base!s} -> {link_norm!s}')
                     link_base = link_norm
-            if link_base.host not in APIAddress.__args__ and Config.no_external_links:
+            if not is_link_native(link_base) and Config.no_external_links:
                 Log.warn(f'[{user}:{pid}] {title}: skipping {link_base} due to \'--no-external-links\' flag!')
                 continue
             if not pathlib.Path(name).suffix:
                 name = f'{name}{link_base.suffix}'
 
-            link_full = link_base
+            link = link_base
             name_append = name
-            lpath = post_dest.joinpath(sanitize_path(next_file_name(name_append)))
+            lpath = dest.joinpath(sanitize_path(next_file_name(name_append)))
             while (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN and len(name_append) > 15:
                 Log.warn(f'[{user}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}...')
                 name_append = f'{name_append[:len(name_append) // 2]}{link_base.suffix}'
-                lpath = post_dest.joinpath(sanitize_path(next_file_name(name_append)))
+                lpath = dest.joinpath(sanitize_path(next_file_name(name_append)))
             if (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN:
                 raise OSError(f'[{user}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}!')
 
-            plink = PostLinkDownloadInfo(name, link_full, lpath, DownloadStatus())
+            plink = PostLinkInfo(pid, name, link, lpath, DownloadStatus())
+
+            if not is_link_native(plink.url):
+                plink.status.flags |= DownloadFlags.EXTERNAL_LINK
 
             if plfilter := any_filter_matching_post_link(plink, link_filters):
                 Log.warn(f'[{user}:{pid}] {title}: file \'{name}\' was filtered out by {plfilter!s}. Skipped!')
@@ -213,9 +220,16 @@ def gather_post_info(
 
             links[name] = plink
 
-        post_info.append(PostDownloadInfo(pid, user, user, service, title, post_tags, post_dest, spost, links, [], DownloadStatus()))
+        p = PostInfo(pid, user, service, title, imported, published, edited, tags, content, dest, list(links.values()), DownloadStatus())
+        await Cache.store_post_info_cache([p])
 
-    return post_info
+        if pifilter := any_filter_matching_post_info(p, post_filters):
+            Log.warn(f'[{user}:{pid}] {title}: Post was filtered out by {pifilter!s}. Skipped!')
+            continue
+
+        post_infos.append(p)
+
+    return post_infos
 
 #
 #
