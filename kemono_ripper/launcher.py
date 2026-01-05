@@ -28,7 +28,7 @@ __all__ = ('config_create', 'launch')
 
 async def _process_list_search_results(kemono: Kemono, ls_results: Iterable[PCSDPost], *, download=False) -> None:
     links = [PostPageScanResult(_['id'], _['user'], _['service'], kemono.api_address) for _ in ls_results]
-    await _process_post_page_scan_results(kemono, links, ls_results=ls_results, download=download)
+    await _process_post_page_scan_results(kemono, links, ls_results=ls_results, compact=True, download=download)
 
 
 async def _process_post_page_scan_results(kemono: Kemono, links: Sequence[PostPageScanResult], *,
