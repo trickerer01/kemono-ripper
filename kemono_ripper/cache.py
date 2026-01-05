@@ -14,7 +14,7 @@ from typing import TypeAlias
 
 from yarl import URL
 
-from .api import DownloadStatus, PostInfo, PostLinkInfo, PostPageScanResult, SQLSchema
+from .api import DownloadStatus, PostInfo, PostLinkInfo, SQLSchema
 from .config import Config
 from .defs import CACHE_DB_NAME_DEFAULT
 from .logger import Log
@@ -145,8 +145,8 @@ class Cache:
             return Cache._db.execute(f'{query};', params).fetchall()
 
     @staticmethod
-    async def get_post_info_cache(links: Iterable[PostPageScanResult]) -> list[PostInfo]:
-        post_ids = ','.join(_.post_id for _ in links)
+    async def get_post_info_cache(post_ids_: Iterable[str]) -> list[PostInfo]:
+        post_ids = ','.join(post_ids_)
         presults = await Cache._query(
             f'SELECT {",".join(_.name for _ in PostInfo.sql_schema.columns)} '
             'FROM `cache_post` '
@@ -164,7 +164,7 @@ class Cache:
             )
         post_infos: list[PostInfo] = []
         for pr in presults:
-            post_info = PostInfo(pr[0], pr[1], pr[2], pr[3], pr[4], pr[5], pr[6], pr[7].split(' '), pr[8],
+            post_info = PostInfo(pr[0], pr[1], pr[2], pr[3], pr[4], pr[5], pr[6], pr[7].split(','), pr[8],
                                  pathlib.Path(pr[9]), list(post_links.get(pr[0], [])), DownloadStatus(flags=pr[10]))
             post_infos.append(post_info)
         return post_infos
@@ -176,7 +176,7 @@ class Cache:
              f'VALUES\n({",".join("?" * len(PostInfo.sql_schema.columns))})',
              [
                  (_.post_id, _.creator_id, _.service, _.title, _.imported, _.published, _.edited,
-                  ' '.join(_.tags), _.content, _.dest.as_posix(), int(_.status.flags))
+                  ','.join(_.tags), _.content, _.dest.as_posix(), int(_.status.flags))
                  for _ in post_infos
              ],
              ),
@@ -202,6 +202,11 @@ class Cache:
         await Cache._execute_one(('UPDATE `cache_post_link` SET `path`=?, `size`=?, `flags`=? WHERE `post_id`=? AND `name`=?',
                                   (post_link_info.path.as_posix(), post_link_info.status.size, int(post_link_info.status.flags),
                                    post_link_info.post_id, post_link_info.name)))
+
+    @staticmethod
+    async def clear_post_info_cache(post_ids_: Iterable[str]) -> None:
+        await Cache._execute_one(('DELETE FROM `cache_post` WHERE `post_id` IN (?)', (*post_ids_,)))
+        await Cache._execute_one(('DELETE FROM `cache_post_link` WHERE `post_id` IN (?)', (*post_ids_,)))
 
 #
 #

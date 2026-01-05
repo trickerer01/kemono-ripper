@@ -43,6 +43,7 @@ from .defs import (
     SupportedExternalWebsites,
 )
 from .download_direct import DirectLinkDownloader
+from .filters import any_filter_matching_post_link, make_post_link_filters
 from .logger import Log
 
 try:
@@ -193,6 +194,7 @@ class KemonoDownloader:
     def __init__(self, kemono: Kemono, post_infos: Sequence[PostInfo]) -> None:
         self._kemono: Final[Kemono] = kemono
         self._post_info: Final[dict[str, PostInfo]] = {}
+        self._post_link_filters = make_post_link_filters()
 
         self._queue_produce: deque[PostInfo] = deque()
         self._queue_consume: AsyncQueue[PostInfo] = AsyncQueue(Config.max_jobs)
@@ -249,7 +251,7 @@ class KemonoDownloader:
                 Log.trace(f'[queue] [{post.creator_id}:{post.post_id}] \'{plink.name}\' removed from active')
             if result == DownloadResult.FAIL_ALREADY_EXISTS:
                 self._already_exist_count[post.post_id] += 1
-            elif result in (DownloadResult.FAIL_SKIPPED, DownloadResult.FAIL_FILTERED_OUTER):
+            elif result in (DownloadResult.FAIL_SKIPPED, DownloadResult.FAIL_FILTERED_OUT):
                 self._skipped_count[post.post_id] += 1
             elif result == DownloadResult.FAIL_NOT_FOUND:
                 self._404_count[post.post_id] += 1
@@ -280,7 +282,7 @@ class KemonoDownloader:
             fail_tries = len([_ for _ in results if _ == DownloadResult.FAIL_RETRIES])
             exists = len([_ for _ in results if _ == DownloadResult.FAIL_ALREADY_EXISTS])
             skipped = len([_ for _ in results if _ == DownloadResult.FAIL_SKIPPED])
-            filtered = len([_ for _ in results if _ == DownloadResult.FAIL_FILTERED_OUTER])
+            filtered = len([_ for _ in results if _ == DownloadResult.FAIL_FILTERED_OUT])
             unsupported = len([_ for _ in results if _ == DownloadResult.FAIL_UNSUPPORTED])
             partial = len([_ for _ in results if _ == DownloadResult.SUCCESS_PARTIAL])
             external = len([_ for _ in post.links if _.status.flags & DownloadFlags.EXTERNAL_LINK])
@@ -334,7 +336,7 @@ class KemonoDownloader:
         link_native = is_link_native(url)
         link_skipped = bool(
             (Config.skip_external and not link_native) or
-            (Config.skip_completed and (plink.status.flags & DownloadFlags.COMPLETED))
+            (Config.skip_completed and (plink.status.flags & DownloadFlags.COMPLETED)),
         )
         link_supported = is_link_supported(url)
         handler_ex = ExternalURLDownloader(url)
@@ -346,9 +348,13 @@ class KemonoDownloader:
             presult = await handler_ex.probe(plink_id, url, handler_config, is_link_extension_supported)
             if presult.suffix and presult.size > 0:
                 handler_valid = True
+
         if link_skipped:
             Log.warn(f'{plink_id}: Skipping link {url_str} due to \'--skip-{"external" if not link_native else "completed"}\' flag!')
             dresult = DownloadResult.FAIL_SKIPPED
+        elif plfilter := any_filter_matching_post_link(plink, self._post_link_filters):
+            Log.warn(f'{plink_id}: Link {url_str} was filtered out by {plfilter!s}. Skipped!')
+            dresult = DownloadResult.FAIL_FILTERED_OUT
         elif handler_valid:
             Log.info(f'{plink_id}: {handler_ex.name()} url detected, using \'{handler_ex.app_name()}\' to handle {url_str}')
             plink.status.state = State.DOWNLOADING

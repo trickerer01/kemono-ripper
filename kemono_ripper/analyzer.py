@@ -19,7 +19,6 @@ from .cache import Cache
 from .config import Config
 from .defs import FILE_NAME_FULL_MAX_LEN, SupportedExternalWebsites
 from .download_direct import DirectLinkDownloader
-from .filters import any_filter_matching_post_info, any_filter_matching_post_link, make_post_info_filters, make_post_link_filters
 from .formatter import format_path
 from .logger import Log
 from .util import sanitize_path
@@ -72,9 +71,6 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
     def next_api_address() -> URL:
         next_api_address.name_idx = (getattr(next_api_address, 'name_idx', random.randint(1, 99)) + random.randint(1, 99)) % 4 + 1
         return URL(f'https://n{next_api_address.name_idx:d}.{api_address}')
-
-    post_filters = make_post_info_filters()
-    link_filters = make_post_link_filters()
 
     post_infos: list[PostInfo] = []
     for spost_idx, spost in enumerate(posts):  # noqa B007  # stupid ruff
@@ -209,19 +205,10 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
             if not is_link_native(plink.url):
                 plink.status.flags |= DownloadFlags.EXTERNAL_LINK
 
-            if plfilter := any_filter_matching_post_link(plink, link_filters):
-                Log.warn(f'[{user}:{pid}] {title}: file \'{name}\' was filtered out by {plfilter!s}. Skipped!')
-                continue
-
             links[name] = plink
 
         p = PostInfo(pid, user, service, title, imported, published, edited, tags, content, dest, list(links.values()), DownloadStatus())
         await Cache.store_post_info_cache([p])
-
-        if pifilter := any_filter_matching_post_info(p, post_filters):
-            Log.warn(f'[{user}:{pid}] {title}: Post was filtered out by {pifilter!s}. Skipped!')
-            continue
-
         post_infos.append(p)
 
     return post_infos

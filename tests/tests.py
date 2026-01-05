@@ -6,6 +6,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 #
 
+import asyncio
 import functools
 import pathlib
 from collections.abc import Callable
@@ -16,10 +17,12 @@ from unittest.mock import patch
 
 from kemono_ripper import APP_NAME, APP_VERSION, main_sync
 from kemono_ripper.analyzer import SUPPORTED_EXTENSIONS
-from kemono_ripper.api import APIAddress, RequestQueue
+from kemono_ripper.api import APIAddress, APIService, DownloadFlags, PostInfo, RequestQueue
+from kemono_ripper.cache import Cache
 from kemono_ripper.config import Config
 from kemono_ripper.defs import UTF8
 from kemono_ripper.logger import Log
+from kemono_ripper.main import at_startup
 
 COMMON_ARGS = ('-v', 'trace', '-j', '8')
 COMMON_ARGS_C = (*COMMON_ARGS, '--skip-cache')
@@ -94,15 +97,41 @@ class CmdTests(TestCase):
         print(f'{self._testMethodName} passed')
 
     @test_prepare()
-    def test_cmd_command_cr(self):
+    def test_cmd_command_cr1(self):
         if not RUN_CONN_TESTS:
             return
         with TemporaryDirectory(prefix=f'{APP_NAME}_{self._testMethodName}_') as tempdir:
             arglist1 = [
                 'creator', 'rip', '2318129271453', '--published', '2022-01-01..2022-06-01', '--service', 'gumroad', '--ext', '.fbx',
             ]
+            arglist1.extend(('--path', tempdir, *COMMON_ARGS_C))
+            main_sync(arglist1)
+        print(f'{self._testMethodName} passed')
+
+    @test_prepare()
+    def test_cmd_command_cr2_cache(self):
+        if not RUN_CONN_TESTS:
+            return
+        post_id = 'uitrim'
+        creator_id = '2318129271453'
+        service: APIService = 'gumroad'
+        apiaddr = APIAddress.__args__[0]
+        arglist1 = ['creator', 'rip', creator_id, '--published', '2022-01-01..2022-06-01', '--service', service, '--api-addr', apiaddr]
+        at_startup(arglist1)
+        asyncio.run(Cache().__aenter__(Cache()))  # noqa PLC2801
+        asyncio.run(Cache.clear_post_info_cache((post_id,)))
+        cache1: list[PostInfo] = asyncio.run(Cache.get_post_info_cache((post_id,)))
+        asyncio.run(Cache().__aexit__(Cache(), None, None, None))
+        with TemporaryDirectory(prefix=f'{APP_NAME}_{self._testMethodName}_') as tempdir:
             arglist1.extend(('--path', tempdir, *COMMON_ARGS))
             main_sync(arglist1)
+        asyncio.run(Cache().__aenter__(Cache()))  # noqa PLC2801
+        cache2: list[PostInfo] = asyncio.run(Cache.get_post_info_cache((post_id,)))
+        asyncio.run(Cache().__aexit__(Cache(), None, None, None))
+        self.assertEqual(0, len(cache1))
+        self.assertEqual(1, len(cache2))
+        self.assertEqual(post_id, cache2[0].post_id)
+        self.assertTrue(bool(cache2[0].status.flags & DownloadFlags.COMPLETED))
         print(f'{self._testMethodName} passed')
 
     @test_prepare()

@@ -214,14 +214,14 @@ class DownloadResult(IntEnum):
     FAIL_RETRIES = 2
     FAIL_ALREADY_EXISTS = 3
     FAIL_SKIPPED = 4
-    FAIL_FILTERED_OUTER = 5
+    FAIL_FILTERED_OUT = 5
     FAIL_UNSUPPORTED = 6
     FAIL_NO_LINKS = 7
     SUCCESS_PARTIAL = 8
     UNKNOWN = 255
 
     RESULT_MASK_ALL = ((1 << SUCCESS) | (1 << FAIL_NOT_FOUND) | (1 << FAIL_RETRIES) | (1 << FAIL_ALREADY_EXISTS) |
-                       (1 << FAIL_SKIPPED) | (1 << FAIL_FILTERED_OUTER) | (1 << FAIL_UNSUPPORTED) | (1 << FAIL_NO_LINKS) |
+                       (1 << FAIL_SKIPPED) | (1 << FAIL_FILTERED_OUT) | (1 << FAIL_UNSUPPORTED) | (1 << FAIL_NO_LINKS) |
                        (1 << SUCCESS_PARTIAL))
     RESULT_MASK_CRITICAL = (RESULT_MASK_ALL & ~((1 << SUCCESS) | (1 << FAIL_SKIPPED) | (1 << FAIL_ALREADY_EXISTS) | (1 << SUCCESS_PARTIAL)))
 
@@ -383,6 +383,9 @@ class PostInfo(NamedTuple):
 
 
 class PCSDPost(TypedDict):
+    """
+    Protocol: ListedPost, SearchedPost, ScannedPostPost
+    """
     id: str
     user: str
     service: APIService

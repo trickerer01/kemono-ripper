@@ -471,7 +471,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
 
     [add_file_parsing_args(_) for _ in (ppsf, pprf)]
     [add_json_args(_) for _ in (pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
-    [add_caching_args(_) for _ in (pcl, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf)]
+    [add_caching_args(_) for _ in (pcl, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf)]
     [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
     [add_filtering_args(_, True, _ not in (ppl, ppse)) for _ in (pcr, ppl, ppse, ppri, ppru, pprf)]
     [add_logging_args(_) for _ in parsers.values()]
