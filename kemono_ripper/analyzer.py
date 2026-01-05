@@ -133,7 +133,7 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
                     if '/' not in str(url):
                         Log.warn(f'[{user}:{pid}] {title}: found tag \'{tag_name}\' with no address: {bs_tag!s}. Skipped')
                         continue
-                    if (not url.is_absolute() or is_link_native(url)) and url.path.startswith('/data'):
+                    if not url.is_absolute() and url.path.startswith('/data'):
                         url = url.with_path(url.path[len('/data'):])
                     if url not in links_dict:
                         if not url.is_absolute():
