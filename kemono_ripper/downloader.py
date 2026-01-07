@@ -342,8 +342,7 @@ class KemonoDownloader:
         handler_ex = ExternalURLDownloader(url)
         handler_config = ExternalURLHandlerConfig(Config, url.host, dest_base=plink.path)
         handler_valid = handler_ex.valid()
-        if (not handler_valid and not link_supported and not link_skipped and Config.probe_unknown_links
-           and is_link_extension_supported(url.suffix)):
+        if not (handler_valid or link_supported or link_skipped) and Config.probe_unknown_links and is_link_extension_supported(url.suffix):
             handler_config.proxy = ''  # assume unknown link is reachable always
             presult = await handler_ex.probe(plink_id, url, handler_config, is_link_extension_supported)
             if presult.suffix and presult.size > 0:
