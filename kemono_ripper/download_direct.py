@@ -14,6 +14,7 @@ import random
 import sys
 from asyncio import create_task, gather, sleep
 from collections.abc import Callable
+from typing import Literal
 
 from aiofile import async_open
 from aiohttp import ClientConnectorError, ClientPayloadError, ClientResponse, ClientSession, ClientTimeout, TCPConnector
@@ -73,11 +74,10 @@ class DirectLinkDownloader:
                 session.cookie_jar.update_cookies({ck: cv})
         return session
 
-    async def _wrap_request(self, url: URL, try_num: int, **kwargs) -> ClientResponse:
+    async def _wrap_request(self, method: Literal['GET', 'HEAD'], url: URL, try_num: int, **kwargs) -> ClientResponse:
         assert self._session is not None
         if self._nodelay is False:
             await RequestQueue.until_ready(str(url))
-        method = kwargs.pop('method', 'GET')
         Log.trace(f'[{try_num + 1:d}] Sending request: {method} => {url!s}')
         response = await self._session.request(method, url, **kwargs)
         return response
@@ -117,7 +117,7 @@ class DirectLinkDownloader:
             try:
                 file_size = output_path.stat().st_size if output_path.is_file() else 0
                 hkwargs: dict[str, dict[str, str]] = {'headers': {'Range': f'bytes={file_size:d}-'} if file_size > 0 else {}}
-                async with await self._wrap_request(url, try_num=try_num, **hkwargs) as r:
+                async with await self._wrap_request('GET', url, try_num, **hkwargs) as r:
                     if not output_path.suffix:
                         content_type = r.content_type
                         if content_type.startswith(('video/', 'image/')):
@@ -180,7 +180,7 @@ class DirectLinkDownloader:
         while try_num <= self._retries:
             r: ClientResponse | None = None
             try:
-                async with await self._wrap_request(url, method='HEAD', try_num=try_num) as r:
+                async with await self._wrap_request('HEAD', url, try_num) as r:
                     if r.status == 404:
                         try_num = self._retries
                         raise FileNotFoundError('Status 404!')
