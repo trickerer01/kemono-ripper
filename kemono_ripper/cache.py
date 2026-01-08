@@ -145,15 +145,15 @@ class Cache:
 
     @staticmethod
     async def get_post_info_cache(post_ids_: Iterable[str]) -> list[PostInfo]:
-        post_ids = ','.join(post_ids_)
+        post_ids = ','.join(f'\'{_}\'' for _ in post_ids_)
         presults = await Cache._query(
             'SELECT {columns} FROM `cache_post` '
             'WHERE `post_id` IN ({ids})'
-            .format(columns=','.join(_.name for _ in PostInfo.sql_schema.columns), ids=post_ids), ())
+            .format(columns=','.join(f'`{_.name}`' for _ in PostInfo.sql_schema.columns), ids=post_ids), ())
         plresults = await Cache._query(
             'SELECT {columns} FROM `cache_post_link` '
             'WHERE `post_id` IN ({ids}) ORDER BY `post_id`'
-            .format(columns=','.join(_.name for _ in PostLinkInfo.sql_schema.columns), ids=post_ids), ())
+            .format(columns=','.join(f'`{_.name}`' for _ in PostLinkInfo.sql_schema.columns), ids=post_ids), ())
         post_links: dict[str, list[PostLinkInfo]] = defaultdict(list[PostLinkInfo])
         for plr in plresults:
             post_links[plr[0]].append(
@@ -202,7 +202,7 @@ class Cache:
 
     @staticmethod
     async def clear_post_info_cache(post_ids_: Iterable[str]) -> None:
-        post_ids = ','.join(post_ids_)
+        post_ids = ','.join(f'\'{_}\'' for _ in post_ids_)
         await Cache._execute_one((f'DELETE FROM `cache_post` WHERE `post_id` IN ({post_ids})', ()))
         await Cache._execute_one((f'DELETE FROM `cache_post_link` WHERE `post_id` IN ({post_ids})', ()))
 
