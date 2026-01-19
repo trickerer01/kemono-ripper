@@ -242,6 +242,7 @@ class Kemono:
     ) -> list[PostInfo]:
         async def scan_post_wrapper(plink: PostPageScanResult) -> list[PostInfo]:
             async with semaphore:
+                Log.info(f'[API] Scanning post {plink.as_cache_key()}...')
                 return await post_info_generator((await self._scan_post(plink),), self.api_address)
 
         semaphore = Semaphore(self._max_jobs)
@@ -254,10 +255,12 @@ class Kemono:
         return scanned_posts
 
     async def list_creators(self) -> list[Creator]:
+        Log.info('[API] Fetching creators list...')
         creators: list[Creator] = await self._query_api(GetCreatorsAction(self._api_address))
         return creators
 
     async def list_posts(self, creator_id: str) -> list[ListedPost]:
+        Log.info(f'[API] Looking for posts by creator \'{creator_id}\'')
         all_posts: list[ListedPost] = []
         offset = 0
         while len(all_posts) % POSTS_PER_PAGE == 0:
@@ -270,6 +273,7 @@ class Kemono:
         return all_posts
 
     async def search_posts(self, query: str, tags: list[str]) -> list[SearchedPost]:
+        Log.info(f'[API] Searching for posts matching \'{query}\' and {len(tags):d} tags...')
         all_posts: list[SearchedPost] = []
         offset = 0
         while len(all_posts) % POSTS_PER_PAGE == 0:
@@ -283,10 +287,12 @@ class Kemono:
         return all_posts
 
     async def list_tags(self) -> list[PostListedTag]:
+        Log.info(f'[API] Fetching {self._api_address} most popular tags...')
         post_tags: list[PostListedTag] = await self._query_api(GetPostTagsAction(self._api_address))
         return post_tags
 
     async def download_url(self, post: PostInfo, plink: PostLinkInfo) -> KemonoErrorCodes:
+        Log.info(f'[API] Downloading {plink.url!s}...')
         result = await self._download(APIDownloadAction(post, plink))
         return result
 

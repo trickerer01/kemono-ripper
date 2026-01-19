@@ -8,7 +8,7 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 
 import json
 import sys
-from asyncio import get_running_loop, run, sleep
+from asyncio import CancelledError, get_running_loop, run, sleep
 from collections.abc import Sequence
 from contextlib import AsyncExitStack
 
@@ -123,6 +123,9 @@ async def main_async(args: Sequence[str]) -> int:
         return await run_main(args)
     except (KeyboardInterrupt, SystemExit):
         Log.warn('Warning: catched KeyboardInterrupt/SystemExit...')
+        return ErrorCodes.INTERRUPTED
+    except (CancelledError,):
+        Log.warn('Warning: catched CancelledError...')
         return ErrorCodes.INTERRUPTED
 
 

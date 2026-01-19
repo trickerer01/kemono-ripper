@@ -137,20 +137,19 @@ async def _scan_posts_cached(kemono: Kemono, links: Iterable[PostPageScanResult]
     if Config.skip_cache:
         return await kemono.scan_posts(links, gather_post_info)
     links_dict: dict[str, PostPageScanResult] = {_.as_cache_key(): _ for _ in links}
-    orig_count = len(links_dict)
     ls_results_dict: dict[str, str] = {}
     for _ in ls_results or []:
         lsp: ScannedPostPost = _.get('post', _)
         lrd_key = PostPageScanResult(lsp['id'], lsp['user'], lsp['service'], kemono.api_address)
         ls_results_dict[lrd_key.as_cache_key()] = lsp.get('published', '')
     cached = await Cache.get_post_info_cache(_.post_id for _ in links_dict.values())
+    Log.info(f'Found {len(cached):d} fully cached entries!')
     if cached:
-        Log.info(f'Found {len(cached):d} fully cached entries!')
         for pi in cached:
             k = pi.as_cache_key()
             if k in links_dict and (Config.force_cache or (k in ls_results_dict and pi.published == ls_results_dict[k])):
                 links_dict.pop(k)
-        if links_dict and orig_count != len(links_dict):
+        if links_dict:
             Log.info(f'Fetching remaining {len(links_dict):d} posts...')
     if new_cached := await kemono.scan_posts([links_dict[_] for _ in links_dict], gather_post_info):
         cached.extend(new_cached)
