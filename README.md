@@ -9,6 +9,15 @@
   - [webmshare.com](https://webmshare.com)
   - [catbox.moe](https://catbox.moe)
   - Site support requests go to [issues](https://github.com/trickerer01/kemono-ripper/issues)
+- Supports numerous filter types:
+  - post id range
+  - post tag exclusion
+  - creator id exclusion
+  - imported date range
+  - posted date range
+  - file name pattern
+  - file extension(s)
+- Caches search results for later re-scan
 
 ### Requirements
 - **Python 3.10 or greater**
