@@ -116,11 +116,13 @@ class PostDateFilterBase(ABC):
     @abstractmethod
     def filters_out(self, post: PostInfo) -> bool: ...
 
-    def filters_out_by_date_type(self, post: PostInfo, date_type_str: Literal['published', 'added', 'edited']) -> bool:
+    def filters_out_by_date_type(self, post: PostInfo, date_type_str: Literal['published', 'imported', 'edited']) -> bool:
         assert date_type_str in post._fields, f'[{self!s}] Post {post!s} doesn\'t have required field \'{date_type_str}\'!'
         try:
             date_type_date = datetime.datetime.fromisoformat(getattr(post, date_type_str)).date()
         except TypeError:
+            return False
+        except ValueError:
             return False
         if not self._range.mindate <= date_type_date <= self._range.maxdate:
             self._last_filtered = date_type_date.strftime(FMT_DATE)
@@ -145,7 +147,7 @@ class PostDateImportedFilter(PostDateFilterBase):
     Filters posts by post imported date
     """
     def filters_out(self, post: PostInfo) -> bool:
-        return self.filters_out_by_date_type(post, 'added')
+        return self.filters_out_by_date_type(post, 'imported')
 
 
 class PostTagsFilter:
