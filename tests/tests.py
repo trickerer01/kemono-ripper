@@ -58,7 +58,6 @@ class DataIntegrityTests(TestCase):
 
 
 class CmdTests(TestCase):
-
     @test_prepare()
     def test_output_version(self):
         with patch('sys.stdout', new_callable=StringIO) as stdout:
@@ -71,9 +70,9 @@ class CmdTests(TestCase):
         arglist1 = ['config', 'create']
         main_sync(arglist1)
         self.assertTrue(Config.default_config_path().is_file())
-        arglist2 = ['config', 'modify', '--path-format', '{creator_id} - {post_id} - {post_title}']
+        arglist2 = ['config', 'modify', '--path-format', '{creator_id} ({creator_name}) - {post_id} - {post_title}']
         main_sync(arglist2)
-        self.assertEqual('{creator_id} - {post_id} - {post_title}', Config.path_format)
+        self.assertEqual('{creator_id} ({creator_name}) - {post_id} - {post_title}', Config.path_format)
         print(f'{self._testMethodName} passed')
 
     @test_prepare()

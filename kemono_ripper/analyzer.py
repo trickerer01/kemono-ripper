@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from bs4 import BeautifulSoup
 from yarl import URL
 
-from .api import APIAddress, DownloadFlags, DownloadStatus, PostInfo, PostLinkInfo, ScannedPost, ScannedPostPost
+from .api import APIAddress, DownloadFlags, DownloadStatus, FormattablePost, PostInfo, PostLinkInfo, ScannedPost, ScannedPostPost
 from .cache import Cache
 from .config import Config
 from .defs import FILE_NAME_FULL_MAX_LEN, SupportedExternalWebsites
@@ -81,7 +81,7 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
             post['title'] = 'Untitled'
 
         pid = post['id']
-        user = post['user']
+        user_id = post['user']
         service = post['service']
         title = post['title']
         imported = post['added'] or ''
@@ -99,7 +99,7 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
                     purl = URL(preview['url'])
                     links_dict.update({purl: preview['subject'] or 'Untitled'})
                 else:
-                    Log.warn(f'[{user}:{pid}] {title}: unsupported preview type \'{preview["type"]}\'!')
+                    Log.warn(f'[{user_id}:{pid}] {title}: unsupported preview type \'{preview["type"]}\'!')
 
         if embed := post['embed']:
             eurl = URL(embed['url'])
@@ -126,7 +126,7 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
             for bs_tag in bs_tags:
                 if key_name:
                     if bs_tag.get(key_name) is None:
-                        Log.warn(f'[{user}:{pid}] {title}: tag \'{key_name}\' was not found in content element {bs_tag!s}. Skipped')
+                        Log.warn(f'[{user_id}:{pid}] {title}: tag \'{key_name}\' was not found in content element {bs_tag!s}. Skipped')
                         continue
                     urls = [URL(bs_tag[key_name].strip())]
                 else:
@@ -138,7 +138,7 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
                     urls = list(urlset)
                 for url in urls:
                     if '/' not in str(url):
-                        Log.warn(f'[{user}:{pid}] {title}: found tag \'{key_name}\' with no address: {bs_tag!s}. Skipped')
+                        Log.warn(f'[{user_id}:{pid}] {title}: found tag \'{key_name}\' with no address: {bs_tag!s}. Skipped')
                         continue
                     if not url.is_absolute() and url.path.startswith('/data'):
                         url = url.with_path(url.path[len('/data'):])
@@ -182,8 +182,11 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
                 links_dict.update({vurl: video['name']})
 
         tags = post['tags'] or []
-        dest = Config.dest_base.joinpath(format_path(post, Config.path_format))
-        p = PostInfo(pid, user, service, title, imported, published, edited, tags, content, dest, [], DownloadStatus())
+        user_name = (await Cache.get_user_info_cache(user_id, service)).user_name
+        fpost = FormattablePost(post_id=pid, user_id=user_id, service=service, title=title,
+                                added=imported, published=published, user_name=user_name)
+        dest = Config.dest_base.joinpath(format_path(fpost, Config.path_format))
+        p = PostInfo(pid, user_id, service, title, imported, published, edited, tags, content, dest, [], DownloadStatus())
 
         links: dict[str, PostLinkInfo] = {}
         for link_base, name in links_dict.items():
@@ -208,11 +211,11 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
             name_append = name
             lpath = p.dest.joinpath(sanitize_path(next_file_name(name_append)))
             while (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN and len(name_append) > 15:
-                Log.warn(f'[{user}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}...')
+                Log.warn(f'[{user_id}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}...')
                 name_append = f'{name_append[:len(name_append) // 2]}{link_base.suffix}'
                 lpath = p.dest.joinpath(sanitize_path(next_file_name(name_append)))
             if (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN:
-                raise OSError(f'[{user}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}!')
+                raise OSError(f'[{user_id}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}!')
 
             plink = PostLinkInfo(pid, name, link, lpath, DownloadStatus())
 

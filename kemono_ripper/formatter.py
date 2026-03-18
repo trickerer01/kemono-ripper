@@ -18,11 +18,12 @@ __all__ = ('format_path',)
 
 
 TOKEN_EXTRACTORS: dict[str, Callable[[FormattablePost], str]] = {
-    PathTokens.PostId: lambda p: p['id'],
-    PathTokens.Creator: lambda p: p['user'],
-    PathTokens.Title: lambda p: _normalize_format_token(p['title'], 50),
-    PathTokens.Imported: lambda p: _convert_date(p['added']),
-    PathTokens.Published: lambda p: _convert_date(p['published']),
+    PathTokens.PostId: lambda p: p.post_id,
+    PathTokens.Creator: lambda p: p.user_id,
+    PathTokens.CreatorName: lambda p: p.user_name,
+    PathTokens.Title: lambda p: _normalize_format_token(p.title, 50),
+    PathTokens.Imported: lambda p: _convert_date(p.added),
+    PathTokens.Published: lambda p: _convert_date(p.published),
 }
 assert len(TOKEN_EXTRACTORS) == len(PathTokens.__members__.values()), 'God bless defensive programming'
 

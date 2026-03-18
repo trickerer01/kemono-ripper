@@ -57,6 +57,7 @@ FMT_DATE = '%Y-%m-%d'
 class PathTokens(str, Enum):
     PostId = '{post_id}'
     Creator = '{creator_id}'
+    CreatorName = '{creator_name}'
     Title = '{post_title}'
     Imported = '{import_date}'
     Published = '{publish_date}'

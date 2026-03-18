@@ -113,19 +113,16 @@ class ScannedPostPostPoll(TypedDict):
     allow_multiple: bool
 
 
-class FormattablePost(TypedDict):
+class ScannedPostPost(TypedDict):
     id: str
     user: str
     title: str
-    added: str | None  # 'imported'
-    published: str
-
-
-class ScannedPostPost(FormattablePost):
     service: APIService
     content: str
     embed: ScannedPostPostEmbed
     shared_file: bool
+    added: str | None  # 'imported'
+    published: str
     edited: str | None
     file: ScannedPostPostFile
     attachments: list[ScannedPostPostAttachment]
@@ -396,7 +393,7 @@ class PCSDPost(TypedDict):
 class UserInfo(NamedTuple):
     user_id: str
     user_name: str
-    service: APIService
+    service: str
 
     def __hash__(self) -> int:
         return hash((self.user_id, self.service))
@@ -409,6 +406,16 @@ class UserInfo(NamedTuple):
             SQLColumn('service', 'TEXT', True, f"'{next(iter(APIService.__args__))}'"),
         ),
         ('user_id',))
+
+
+class FormattablePost(NamedTuple):
+    post_id: str
+    user_id: str
+    service: str
+    title: str
+    added: str | None  # 'imported'
+    published: str
+    user_name: str
 
 #
 #

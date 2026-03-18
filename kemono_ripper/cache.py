@@ -13,7 +13,7 @@ from typing import TypeAlias
 
 from yarl import URL
 
-from .api import APIService, DownloadStatus, FormattablePost, PostInfo, PostLinkInfo, SQLSchema, UserInfo
+from .api import DownloadStatus, FormattablePost, PostInfo, PostLinkInfo, SQLSchema, UserInfo
 from .config import Config
 from .defs import CACHE_DB_NAME_DEFAULT
 from .formatter import format_path
@@ -158,7 +158,8 @@ class Cache:
             .format(columns=','.join(f'`{_.name}`' for _ in PostLinkInfo.sql_schema.columns), ids=post_ids), ())
         post_infos: dict[str, PostInfo] = {}
         for pr in presults:
-            fp = FormattablePost(id=pr[0], user=pr[1], title=pr[3], added=pr[4], published=pr[5])
+            fp = FormattablePost(post_id=pr[0], user_id=pr[1], service=pr[2], title=pr[3], added=pr[4], published=pr[5],
+                                 user_name=(await Cache.get_user_info_cache(pr[1], pr[2])).user_name)
             post_infos[pr[0]] = PostInfo(pr[0], pr[1], pr[2], pr[3], pr[4], pr[5], pr[6], pr[7].split(','), pr[8],
                                          Config.dest_base.joinpath(format_path(fp, Config.path_format)), [], DownloadStatus(flags=pr[9]))
         for plr in plresults:
@@ -210,7 +211,7 @@ class Cache:
         await Cache._execute_one((f'DELETE FROM `cache_post_link` WHERE `post_id` IN ({post_ids})', ()))
 
     @staticmethod
-    async def get_user_info_cache(user_id: str, service: APIService) -> UserInfo:
+    async def get_user_info_cache(user_id: str, service: str) -> UserInfo:
         uresults = await Cache._query(
             'SELECT {columns} FROM `cache_user` '
             'WHERE `service`=\'{service}\' AND `user_id`=\'{user_id}\''
@@ -218,7 +219,7 @@ class Cache:
         if uresults:
             assert len(uresults) == 1
             uresult = uresults[0]
-            return UserInfo(uresult[0], uresult[1], uresult[2] if uresult[2] in APIService.__args__ else next(iter(APIService.__args__)))
+            return UserInfo(uresult[0], uresult[1], uresult[2])
         return UserInfo(user_id, user_id, service)
 
     @staticmethod
@@ -227,13 +228,13 @@ class Cache:
         uresults = await Cache._query(
             'SELECT {columns} FROM `cache_user`'.format(columns=','.join(f'`{_.name}`' for _ in UserInfo.sql_schema.columns)), ())
         if uresults:
-            results.extend(UserInfo(_[0], _[1], _[2] if _[2] in APIService.__args__ else next(iter(APIService.__args__))) for _ in uresults)
+            results.extend(UserInfo(_[0], _[1], _[2]) for _ in uresults)
         return results
 
     @staticmethod
     async def store_user_info_cache(user_infos: Iterable[UserInfo]) -> None:
         await Cache._execute_many(
-            (f'REPLACE INTO `cache_user` ({",".join(_.name for _ in UserInfo.sql_schema.columns)})\n'
+            (f'INSERT OR IGNORE INTO `cache_user` ({",".join(_.name for _ in UserInfo.sql_schema.columns)})\n'
              f'VALUES\n({",".join("?" * len(UserInfo.sql_schema.columns))})',
              [(_.user_id, _.user_name, _.service) for _ in user_infos]),
         )
