@@ -36,7 +36,7 @@ def test_prepare(log=False) -> Callable[[], Callable[[], None]]:
         @functools.wraps(test_func)
         def invoke_test(*args, **kwargs) -> None:
             def set_up_test() -> None:
-                Log._disabled = not log
+                Log._disabled = not log and not bool(RUN_CONN_TESTS)
                 Config._reset()
                 RequestQueue._reset()
             set_up_test()
