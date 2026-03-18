@@ -32,6 +32,7 @@ from .types import (
     SQLSchema,
     State,
     URLProbeResult,
+    UserInfo,
 )
 
 __all__ = (
@@ -68,4 +69,5 @@ __all__ = (
     'SearchedPosts',
     'State',
     'URLProbeResult',
+    'UserInfo',
 )

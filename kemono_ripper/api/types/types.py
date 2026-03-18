@@ -325,7 +325,6 @@ class PostLinkInfo(NamedTuple):
             SQLColumn('post_id', 'TEXT', True, None),
             SQLColumn('name', 'TEXT', True, None),
             SQLColumn('url', 'TEXT', True, None),
-            # SQLColumn('path', 'TEXT', True, None),
             SQLColumn('size', 'INTEGER', True, "'0'"),
             SQLColumn('flags', 'INTEGER', True, "'0'"),
         ),
@@ -379,7 +378,6 @@ class PostInfo(NamedTuple):
             SQLColumn('edited', 'TEXT', False, None),
             SQLColumn('tags', 'TEXT', True, None),
             SQLColumn('content', 'TEXT', True, None),
-            # SQLColumn('dest', 'TEXT', True, "''"),
             SQLColumn('flags', 'INTEGER', True, "'0'"),
         ),
         ('post_id',))
@@ -393,6 +391,24 @@ class PCSDPost(TypedDict):
     user: str
     service: APIService
     published: str
+
+
+class UserInfo(NamedTuple):
+    user_id: str
+    user_name: str
+    service: APIService
+
+    def __hash__(self) -> int:
+        return hash((self.user_id, self.service))
+
+    sql_schema = SQLSchema(
+        'cache_user',
+        (
+            SQLColumn('user_id', 'TEXT', True, None),
+            SQLColumn('user_name', 'TEXT', True, None),
+            SQLColumn('service', 'TEXT', True, f"'{next(iter(APIService.__args__))}'"),
+        ),
+        ('user_id',))
 
 #
 #

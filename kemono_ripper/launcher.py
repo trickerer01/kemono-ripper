@@ -13,7 +13,7 @@ from argparse import ArgumentError
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 
 from .analyzer import gather_post_info
-from .api import APIAddress, Creator, Kemono, PCSDPost, PostInfo, PostPageScanResult, ScannedPostPost
+from .api import APIAddress, Kemono, PCSDPost, PostInfo, PostPageScanResult, ScannedPostPost, UserInfo
 from .cache import Cache
 from .config import Config
 from .defs import CREATORS_NAME_DEFAULT, POST_TAGS_NAME_DEFAULT, UTF8, PathURLJSONEncoder
@@ -159,6 +159,8 @@ async def _scan_posts_cached(kemono: Kemono, links: Iterable[PostPageScanResult]
 async def creator_dump(kemono: Kemono) -> None:
     results = await kemono.list_creators()
     results_sorted = sorted(results, key=lambda c: c['name'].lower())
+    Log.info(f'Caching {len(results_sorted):d} creator list entries...')
+    await Cache.store_user_info_cache(UserInfo(_['id'], _['name'], _['service']) for _ in results_sorted)
     with open(Config.dest_base / CREATORS_NAME_DEFAULT, 'wt', encoding=UTF8, newline='\n') as outfile_creators:
         json.dump(
             [(creator['name'], creator['id'], creator['service']) for creator in results_sorted] if Config.prune else results_sorted,
@@ -168,14 +170,15 @@ async def creator_dump(kemono: Kemono) -> None:
 
 
 async def creator_list(kemono: Kemono) -> None:
-    results: list[Creator] = []
-    cache_path = Config.dest_base / CREATORS_NAME_DEFAULT
-    if Config.skip_cache is False and cache_path.is_file():
-        with open(cache_path, 'rt', encoding=UTF8) as infile_creators:
-            results = json.load(infile_creators)
-    results = results or await kemono.list_creators()
-    matched = [c for c in results if Config.pattern.lower() in c['name'].lower()]
-    Log.info('\n'.join(('\n', *(f'[{_["service"]}] {_["name"]}: {_["id"]}' for _ in matched))) or '\nNothing')
+    results = await Cache.get_user_infos_cache()
+    if not results:
+        Log.info('Creator names cache doesn\'t exist, fetching full list...')
+        await creator_dump(kemono)
+        results = await Cache.get_user_infos_cache()
+    else:
+        Log.info(f'Using cached creator names... ({len(results):d} entries exist)')
+    matched = [c for c in results if Config.pattern.lower() in c.user_name.lower()]
+    Log.info('\n'.join(('\n', *(f'[{_.service}] {_.user_name}: {_.user_id}' for _ in matched))) or '\nNothing')
 
 
 async def creator_rip(kemono: Kemono) -> None:

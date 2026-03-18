@@ -13,7 +13,7 @@ from typing import TypeAlias
 
 from yarl import URL
 
-from .api import DownloadStatus, FormattablePost, PostInfo, PostLinkInfo, SQLSchema
+from .api import APIService, DownloadStatus, FormattablePost, PostInfo, PostLinkInfo, SQLSchema, UserInfo
 from .config import Config
 from .defs import CACHE_DB_NAME_DEFAULT
 from .formatter import format_path
@@ -50,6 +50,8 @@ __all__ = ('Cache',)
 
 QueryResult: TypeAlias = list[tuple[str | int | float | bool | None, ...]]
 SchemaDumpRow = namedtuple('SchemaDumpRow', ('cid', 'col_name', 'data_type', 'not_null', 'default', 'is_pk'))
+
+TableSchemas = (PostInfo, PostLinkInfo, UserInfo)
 
 
 def _make_schema_string(schema: SQLSchema) -> str:
@@ -107,12 +109,12 @@ class Cache:
 
     @staticmethod
     async def _ensure_db_schema() -> None:
-        for ntup in (PostInfo, PostLinkInfo):
-            schema = _make_schema_string(ntup.sql_schema)
+        for tab in TableSchemas:
+            schema = _make_schema_string(tab.sql_schema)
             await Cache._execute_one((f'CREATE TABLE IF NOT EXISTS {schema}', ()))
             table_name = Cache._table_name_from_schema(schema)
             schema_existing = await Cache._dump_table_schema(table_name)
-            assert _verify_schema(ntup.sql_schema, schema_existing), (
+            assert _verify_schema(tab.sql_schema, schema_existing), (
                 f'Invalid table {table_name} schema detected!\n\'\'\'\n{schema_existing!s}\n\'\'\'\nExpected:\n\'\'\'\n{schema!s}\n\'\'\''
                 f'\nDelete outdated schema DB or fix it manually!'
             )
@@ -168,7 +170,7 @@ class Cache:
         return post_infos
 
     @staticmethod
-    async def store_post_info_cache(post_infos: Sequence[PostInfo]) -> None:
+    async def store_post_info_cache(post_infos: Iterable[PostInfo]) -> None:
         await Cache._execute_many(
             (f'REPLACE INTO `cache_post` ({",".join(_.name for _ in PostInfo.sql_schema.columns)})\n'
              f'VALUES\n({",".join("?" * len(PostInfo.sql_schema.columns))})',
@@ -206,6 +208,35 @@ class Cache:
         post_ids = ','.join(f'\'{_}\'' for _ in post_ids_)
         await Cache._execute_one((f'DELETE FROM `cache_post` WHERE `post_id` IN ({post_ids})', ()))
         await Cache._execute_one((f'DELETE FROM `cache_post_link` WHERE `post_id` IN ({post_ids})', ()))
+
+    @staticmethod
+    async def get_user_info_cache(user_id: str, service: APIService) -> UserInfo:
+        uresults = await Cache._query(
+            'SELECT {columns} FROM `cache_user` '
+            'WHERE `service`=\'{service}\' AND `user_id`=\'{user_id}\''
+            .format(columns=','.join(f'`{_.name}`' for _ in UserInfo.sql_schema.columns), user_id=user_id, service=service), ())
+        if uresults:
+            assert len(uresults) == 1
+            uresult = uresults[0]
+            return UserInfo(uresult[0], uresult[1], uresult[2] if uresult[2] in APIService.__args__ else next(iter(APIService.__args__)))
+        return UserInfo(user_id, user_id, service)
+
+    @staticmethod
+    async def get_user_infos_cache() -> list[UserInfo]:
+        results = []
+        uresults = await Cache._query(
+            'SELECT {columns} FROM `cache_user`'.format(columns=','.join(f'`{_.name}`' for _ in UserInfo.sql_schema.columns)), ())
+        if uresults:
+            results.extend(UserInfo(_[0], _[1], _[2] if _[2] in APIService.__args__ else next(iter(APIService.__args__))) for _ in uresults)
+        return results
+
+    @staticmethod
+    async def store_user_info_cache(user_infos: Iterable[UserInfo]) -> None:
+        await Cache._execute_many(
+            (f'REPLACE INTO `cache_user` ({",".join(_.name for _ in UserInfo.sql_schema.columns)})\n'
+             f'VALUES\n({",".join("?" * len(UserInfo.sql_schema.columns))})',
+             [(_.user_id, _.user_name, _.service) for _ in user_infos]),
+        )
 
 #
 #
