@@ -204,7 +204,7 @@ async def post_scan_id(kemono: Kemono, *, download=False) -> None:
 
 
 async def post_scan_url(kemono: Kemono, *, links: Iterable[PostPageScanResult] | None = None, download=False) -> None:
-    await _process_post_page_scan_results(kemono, links or Config.links, compact=True, download=download)
+    await _process_post_page_scan_results(kemono, links or Config.links or [], compact=True, download=download)
 
 
 async def post_scan_file(kemono: Kemono, *, download=False) -> None:
