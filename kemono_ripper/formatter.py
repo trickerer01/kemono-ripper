@@ -10,14 +10,14 @@ import datetime
 import pathlib
 from collections.abc import Callable
 
-from .api import ScannedPostPost
+from .api import FormattablePost
 from .defs import FMT_DATE, PathTokens
 from .util import sanitize_path
 
 __all__ = ('format_path',)
 
 
-TOKEN_EXTRACTORS: dict[str, Callable[[ScannedPostPost], str]] = {
+TOKEN_EXTRACTORS: dict[str, Callable[[FormattablePost], str]] = {
     PathTokens.PostId: lambda p: p['id'],
     PathTokens.Creator: lambda p: p['user'],
     PathTokens.Title: lambda p: _normalize_format_token(p['title'], 50),
@@ -47,7 +47,7 @@ def _normalize_format_token(base_string: str, max_len: int) -> str:
     return result
 
 
-def format_path(post: ScannedPostPost, format_string: str) -> pathlib.Path:
+def format_path(post: FormattablePost, format_string: str) -> pathlib.Path:
     result_str = format_string.format_map({t[1:-1]: TOKEN_EXTRACTORS[t](post) for t in TOKEN_EXTRACTORS if t in format_string})
     return pathlib.Path(result_str)
 

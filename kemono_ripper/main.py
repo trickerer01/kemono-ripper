@@ -124,7 +124,7 @@ async def main_async(args: Sequence[str]) -> int:
     except (KeyboardInterrupt, SystemExit):
         Log.warn('Warning: catched KeyboardInterrupt/SystemExit...')
         return ErrorCodes.INTERRUPTED
-    except (CancelledError,):
+    except CancelledError:
         Log.warn('Warning: catched CancelledError...')
         return ErrorCodes.INTERRUPTED
 

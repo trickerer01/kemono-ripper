@@ -113,16 +113,19 @@ class ScannedPostPostPoll(TypedDict):
     allow_multiple: bool
 
 
-class ScannedPostPost(TypedDict):
+class FormattablePost(TypedDict):
     id: str
     user: str
-    service: APIService
     title: str
+    added: str | None  # 'imported'
+    published: str
+
+
+class ScannedPostPost(FormattablePost):
+    service: APIService
     content: str
     embed: ScannedPostPostEmbed
     shared_file: bool
-    added: str | None  # 'imported'
-    published: str
     edited: str | None
     file: ScannedPostPostFile
     attachments: list[ScannedPostPostAttachment]
@@ -322,7 +325,7 @@ class PostLinkInfo(NamedTuple):
             SQLColumn('post_id', 'TEXT', True, None),
             SQLColumn('name', 'TEXT', True, None),
             SQLColumn('url', 'TEXT', True, None),
-            SQLColumn('path', 'TEXT', True, None),
+            # SQLColumn('path', 'TEXT', True, None),
             SQLColumn('size', 'INTEGER', True, "'0'"),
             SQLColumn('flags', 'INTEGER', True, "'0'"),
         ),
@@ -376,7 +379,7 @@ class PostInfo(NamedTuple):
             SQLColumn('edited', 'TEXT', False, None),
             SQLColumn('tags', 'TEXT', True, None),
             SQLColumn('content', 'TEXT', True, None),
-            SQLColumn('dest', 'TEXT', True, "''"),
+            # SQLColumn('dest', 'TEXT', True, "''"),
             SQLColumn('flags', 'INTEGER', True, "'0'"),
         ),
         ('post_id',))

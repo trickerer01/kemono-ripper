@@ -126,7 +126,7 @@ class CmdTests(TestCase):
             arglist1.extend(('--path', tempdir, *COMMON_ARGS))
             main_sync(arglist1)
         asyncio.run(Cache().__aenter__(Cache()))  # noqa PLC2801
-        cache2: list[PostInfo] = asyncio.run(Cache.get_post_info_cache((post_id,)))
+        cache2: list[PostInfo] = list(asyncio.run(Cache.get_post_info_cache((post_id,))).values())
         asyncio.run(Cache().__aexit__(Cache(), None, None, None))
         self.assertEqual(0, len(cache1))
         self.assertEqual(1, len(cache2))

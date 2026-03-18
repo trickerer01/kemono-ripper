@@ -142,7 +142,7 @@ async def _scan_posts_cached(kemono: Kemono, links: Iterable[PostPageScanResult]
         lsp: ScannedPostPost = _.get('post', _)
         lrd_key = PostPageScanResult(lsp['id'], lsp['user'], lsp['service'], kemono.api_address)
         ls_results_dict[lrd_key.as_cache_key()] = lsp.get('published', '')
-    cached = await Cache.get_post_info_cache(_.post_id for _ in links_dict.values())
+    cached = list((await Cache.get_post_info_cache(_.post_id for _ in links_dict.values())).values())
     Log.info(f'Found {len(cached):d} fully cached entries!')
     if cached:
         for pi in cached:

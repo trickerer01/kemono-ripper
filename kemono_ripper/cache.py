@@ -7,16 +7,16 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 
 import itertools
-import pathlib
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 from collections.abc import Iterable, Sequence
 from typing import TypeAlias
 
 from yarl import URL
 
-from .api import DownloadStatus, PostInfo, PostLinkInfo, SQLSchema
+from .api import DownloadStatus, FormattablePost, PostInfo, PostLinkInfo, SQLSchema
 from .config import Config
 from .defs import CACHE_DB_NAME_DEFAULT
+from .formatter import format_path
 from .logger import Log
 
 try:
@@ -113,7 +113,7 @@ class Cache:
             table_name = Cache._table_name_from_schema(schema)
             schema_existing = await Cache._dump_table_schema(table_name)
             assert _verify_schema(ntup.sql_schema, schema_existing), (
-                f'Invalid table {table_name} schema detected!\n\'\'\'\n{schema}\n\'\'\'\nExpected:\n\'\'\'\n{schema_existing!s}\n\'\'\''
+                f'Invalid table {table_name} schema detected!\n\'\'\'\n{schema_existing!s}\n\'\'\'\nExpected:\n\'\'\'\n{schema!s}\n\'\'\''
                 f'\nDelete outdated schema DB or fix it manually!'
             )
 
@@ -144,7 +144,7 @@ class Cache:
             return Cache._db.execute(f'{query};', params).fetchall()
 
     @staticmethod
-    async def get_post_info_cache(post_ids_: Iterable[str]) -> list[PostInfo]:
+    async def get_post_info_cache(post_ids_: Iterable[str]) -> dict[str, PostInfo]:
         post_ids = ','.join(f'\'{_}\'' for _ in post_ids_)
         presults = await Cache._query(
             'SELECT {columns} FROM `cache_post` '
@@ -154,16 +154,17 @@ class Cache:
             'SELECT {columns} FROM `cache_post_link` '
             'WHERE `post_id` IN ({ids}) ORDER BY `post_id`'
             .format(columns=','.join(f'`{_.name}`' for _ in PostLinkInfo.sql_schema.columns), ids=post_ids), ())
-        post_links: dict[str, list[PostLinkInfo]] = defaultdict(list[PostLinkInfo])
-        for plr in plresults:
-            post_links[plr[0]].append(
-                PostLinkInfo(plr[0], plr[1], URL(plr[2]), pathlib.Path(plr[3]), DownloadStatus(expected_size=plr[4], flags=plr[5])),
-            )
-        post_infos: list[PostInfo] = []
+        post_infos: dict[str, PostInfo] = {}
         for pr in presults:
-            post_info = PostInfo(pr[0], pr[1], pr[2], pr[3], pr[4], pr[5], pr[6], pr[7].split(','), pr[8],
-                                 pathlib.Path(pr[9]), list(post_links.get(pr[0], [])), DownloadStatus(flags=pr[10]))
-            post_infos.append(post_info)
+            fp = FormattablePost(id=pr[0], user=pr[1], title=pr[3], added=pr[4], published=pr[5])
+            post_infos[pr[0]] = PostInfo(pr[0], pr[1], pr[2], pr[3], pr[4], pr[5], pr[6], pr[7].split(','), pr[8],
+                                         Config.dest_base.joinpath(format_path(fp, Config.path_format)), [], DownloadStatus(flags=pr[9]))
+        for plr in plresults:
+            pi = post_infos.get(plr[0])
+            if pi is None:
+                continue
+            pi.links.append(PostLinkInfo(plr[0], plr[1], URL(plr[2]),
+                                         pi.dest.joinpath(plr[1]), DownloadStatus(expected_size=plr[3], flags=plr[4])))
         return post_infos
 
     @staticmethod
@@ -173,7 +174,7 @@ class Cache:
              f'VALUES\n({",".join("?" * len(PostInfo.sql_schema.columns))})',
              [
                  (_.post_id, _.creator_id, _.service, _.title, _.imported, _.published, _.edited,
-                  ','.join(_.tags), _.content, _.dest.as_posix(), int(_.status.flags))
+                  ','.join(_.tags), _.content, int(_.status.flags))
                  for _ in post_infos
              ],
              ),
@@ -183,7 +184,7 @@ class Cache:
             (f'REPLACE INTO `cache_post_link` ({",".join(_.name for _ in PostLinkInfo.sql_schema.columns)})\n'
              f'VALUES\n({",".join("?" * len(PostLinkInfo.sql_schema.columns))})',
              [
-                 (_.post_id, _.name, str(_.url), _.path.as_posix(), _.status.size, int(_.status.flags))
+                 (_.post_id, _.name, str(_.url), _.status.size, int(_.status.flags))
                  for _ in list[PostLinkInfo](itertools.chain(*(_.links for _ in post_infos)))
              ],
              ),
@@ -191,13 +192,13 @@ class Cache:
 
     @staticmethod
     async def update_post_info_cache(post_info: PostInfo) -> None:
-        await Cache._execute_one(('UPDATE `cache_post` SET `dest`=?, `flags`=? WHERE `post_id`=?',
-                                  (post_info.dest.as_posix(), int(post_info.status.flags), post_info.post_id)))
+        await Cache._execute_one(('UPDATE `cache_post` SET `flags`=? WHERE `post_id`=?',
+                                  (int(post_info.status.flags), post_info.post_id)))
 
     @staticmethod
     async def update_post_link_info_cache(post_link_info: PostLinkInfo) -> None:
-        await Cache._execute_one(('UPDATE `cache_post_link` SET `path`=?, `size`=?, `flags`=? WHERE `post_id`=? AND `name`=?',
-                                  (post_link_info.path.as_posix(), post_link_info.status.size, int(post_link_info.status.flags),
+        await Cache._execute_one(('UPDATE `cache_post_link` SET `size`=?, `flags`=? WHERE `post_id`=? AND `name`=?',
+                                  (post_link_info.status.size, int(post_link_info.status.flags),
                                    post_link_info.post_id, post_link_info.name)))
 
     @staticmethod

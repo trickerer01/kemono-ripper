@@ -170,6 +170,7 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
 
         tags = post['tags'] or []
         dest = Config.dest_base.joinpath(format_path(post, Config.path_format))
+        p = PostInfo(pid, user, service, title, imported, published, edited, tags, content, dest, [], DownloadStatus())
 
         links: dict[str, PostLinkInfo] = {}
         for link_base, name in links_dict.items():
@@ -192,11 +193,11 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
 
             link = link_base
             name_append = name
-            lpath = dest.joinpath(sanitize_path(next_file_name(name_append)))
+            lpath = p.dest.joinpath(sanitize_path(next_file_name(name_append)))
             while (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN and len(name_append) > 15:
                 Log.warn(f'[{user}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}...')
                 name_append = f'{name_append[:len(name_append) // 2]}{link_base.suffix}'
-                lpath = dest.joinpath(sanitize_path(next_file_name(name_append)))
+                lpath = p.dest.joinpath(sanitize_path(next_file_name(name_append)))
             if (lplen := len(lpath.as_posix())) > FILE_NAME_FULL_MAX_LEN:
                 raise OSError(f'[{user}:{pid}]: file path \'{lpath.as_posix()}\' length is {lplen:d} > {FILE_NAME_FULL_MAX_LEN:d}!')
 
@@ -207,7 +208,7 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
 
             links[name] = plink
 
-        p = PostInfo(pid, user, service, title, imported, published, edited, tags, content, dest, list(links.values()), DownloadStatus())
+        p.links.extend(links.values())
         await Cache.store_post_info_cache([p])
         post_infos.append(p)
 
