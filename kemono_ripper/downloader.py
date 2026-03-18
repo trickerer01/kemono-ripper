@@ -335,10 +335,9 @@ class KemonoDownloader:
         url = plink.url
         url_str = str(url)
         link_native = is_link_native(url)
-        link_skipped = bool(
-            (Config.skip_external and not link_native) or
-            (Config.skip_completed and (plink.status.flags & DownloadFlags.COMPLETED)),
-        )
+        link_skipped_external = bool(Config.skip_external and not link_native)
+        link_skipped_completed = bool(Config.skip_completed and (plink.status.flags & DownloadFlags.COMPLETED))
+        link_skipped = link_skipped_external or link_skipped_completed
         link_supported = is_link_supported(url)
         handler_ex = ExternalURLDownloader(url)
         handler_config = ExternalURLHandlerConfig(Config, url.host, dest_base=plink.path)
@@ -350,7 +349,8 @@ class KemonoDownloader:
                 handler_valid = True
 
         if link_skipped:
-            Log.warn(f'{plink_id}: Skipping link {url_str} due to \'--skip-{"external" if not link_native else "completed"}\' flag!')
+            skip_reason = 'external' if link_skipped_external else 'completed' if link_skipped_completed else 'NOREASON'
+            Log.warn(f'{plink_id}: Skipping link {url_str} due to \'--skip-{skip_reason}\' flag!')
             dresult = DownloadResult.FAIL_SKIPPED
         elif plfilter := any_filter_matching_post_link(plink, self._post_link_filters):
             Log.warn(f'{plink_id}: Link {url_str} was filtered out by {plfilter!s}. Skipped!')
