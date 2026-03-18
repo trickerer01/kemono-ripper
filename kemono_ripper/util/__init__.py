@@ -1,5 +1,5 @@
 from .filesystem import extract_ext, sanitize_path
-from .strings import HTTP_PREFIX, HTTPS_PREFIX, build_regex_from_pattern, compose_link_v2, ensure_scheme_https
+from .strings import HTTP_PREFIX, HTTPS_PREFIX, build_regex_from_pattern, compose_link_v2, ensure_scheme_https, extract_links_from_text
 from .time import (
     calculate_eta,
     datetime_str_nfull,
@@ -23,6 +23,7 @@ __all__ = (
     'datetime_str_nfull',
     'ensure_scheme_https',
     'extract_ext',
+    'extract_links_from_text',
     'format_time',
     'get_elapsed_time_i',
     'get_elapsed_time_s',

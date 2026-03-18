@@ -21,13 +21,14 @@ from .defs import FILE_NAME_FULL_MAX_LEN, SupportedExternalWebsites
 from .download_direct import DirectLinkDownloader
 from .formatter import format_path
 from .logger import Log
-from .util import sanitize_path
+from .util import extract_links_from_text, sanitize_path
 
 __all__ = ('extract_link_name', 'gather_post_info', 'is_link_extension_supported', 'is_link_native', 'is_link_supported')
 
 SUPPORTED_TAGS = (
     ('a', 'href'),
     ('img', 'src'),
+    ('p', ''),
 )
 
 SUPPORTED_EXTENSIONS = {
@@ -109,29 +110,35 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
                 aurl = URL(attachment['path'])
                 links_dict.update({aurl: attachment.get('name') or 'Untitled'})
 
-        content = post['content']
-        if content and len(content) >= 40:
+        def proc_tags(raw_html: BeautifulSoup, tag_type: str, key_name: str) -> None:
             link_idx = len(links_dict)
-            bs = BeautifulSoup(content, 'html.parser')
-            for tag_type, tag_name in SUPPORTED_TAGS:
-                bs_tags = bs.find_all(tag_type)
-                check_mega_keys = tag_type == 'a'
-                keys_mega: list[str] = [
-                    re.search(r'([-\d\w]{22,})', _.string).group(1)
-                    for _ in bs.find_all(string=re.compile(r'(?:^|[^/]+ )[!#]?[-\d\w]{22,}')) if not any(s * 4 in _ for s in '-_')
-                ] if check_mega_keys else []
-                paths_mega: list[str] = [  # file/folder paths v1
-                    re.search(r'(#F?![-\d\w]{8}![-\d\w]{22,})', _.string).group(1)
-                    for _ in bs.find_all(string=re.compile(r'(?:^|[^/]+ )#F?![-\d\w]{8}![-\d\w]{22,}'))
-                ] if check_mega_keys else []
-                mkey_idx = mpath_idx = 0
-                for bs_tag in bs_tags:
-                    if bs_tag.get(tag_name) is None:
-                        Log.warn(f'[{user}:{pid}] {title}: tag \'{tag_name}\' was not found in content element {bs_tag!s}. Skipped')
+            bs_tags = raw_html.find_all(tag_type)
+            check_mega_keys = tag_type == 'a'
+            keys_mega: list[str] = [
+                re.search(r'([-\d\w]{22,})', _.string).group(1)
+                for _ in raw_html.find_all(string=re.compile(r'(?:^|[^/]+ )[!#]?[-\d\w]{22,}')) if not any(s * 4 in _ for s in '-_')
+            ] if check_mega_keys else []
+            paths_mega: list[str] = [  # file/folder paths v1
+                re.search(r'(#F?![-\d\w]{8}![-\d\w]{22,})', _.string).group(1)
+                for _ in raw_html.find_all(string=re.compile(r'(?:^|[^/]+ )#F?![-\d\w]{8}![-\d\w]{22,}'))
+            ] if check_mega_keys else []
+            mkey_idx = mpath_idx = 0
+            for bs_tag in bs_tags:
+                if key_name:
+                    if bs_tag.get(key_name) is None:
+                        Log.warn(f'[{user}:{pid}] {title}: tag \'{key_name}\' was not found in content element {bs_tag!s}. Skipped')
                         continue
-                    url = URL(bs_tag[tag_name].strip())
+                    urls = [URL(bs_tag[key_name].strip())]
+                else:
+                    tag_contents = bs_tag.get_text('\n').strip().split('\n')
+                    urlset = set[URL]()
+                    for s in tag_contents:
+                        s_urls = extract_links_from_text(s)
+                        urlset.update(s_urls)
+                    urls = list(urlset)
+                for url in urls:
                     if '/' not in str(url):
-                        Log.warn(f'[{user}:{pid}] {title}: found tag \'{tag_name}\' with no address: {bs_tag!s}. Skipped')
+                        Log.warn(f'[{user}:{pid}] {title}: found tag \'{key_name}\' with no address: {bs_tag!s}. Skipped')
                         continue
                     if not url.is_absolute() and url.path.startswith('/data'):
                         url = url.with_path(url.path[len('/data'):])
@@ -157,6 +164,12 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
                                     url = url.with_fragment(mkey)
                                     mkey_idx += 1
                         links_dict.update({url: link_name})
+
+        content = post['content']
+        if content and len(content) >= 40:
+            bs = BeautifulSoup(content, 'html.parser')
+            for ttype, tname in SUPPORTED_TAGS:
+                proc_tags(bs, ttype, tname)
 
         if file := post['file']:
             if 'name' in file:

@@ -9,13 +9,18 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 import re
 import urllib.parse
 
+from yarl import URL
+
 HTTP_PREFIX = 'http://'
 HTTPS_PREFIX = 'https://'
+
+re_link = re.compile(r'(https?://[^./]+\.[^/]+/[^ ]+)')
 
 
 def ensure_scheme_https(url: str) -> str:
     if urllib.parse.urlparse(url).scheme == 'http':
         return url.replace(HTTP_PREFIX, HTTPS_PREFIX)
+    return url
 
 
 def compose_link_v2(folder_id: str, file_id: str, key: str, site: str = '') -> str:
@@ -29,6 +34,11 @@ def compose_link_v2(folder_id: str, file_id: str, key: str, site: str = '') -> s
         return link
     # invalid link always
     return ''
+
+
+def extract_links_from_text(raw_string: str) -> list[URL]:
+    urs: list[str] = re_link.findall(raw_string)
+    return [URL(ensure_scheme_https(_)) for _ in urs]
 
 
 def build_regex_from_pattern(expression: str) -> re.Pattern:
