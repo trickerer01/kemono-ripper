@@ -167,6 +167,7 @@ class ExternalURLDownloader:
         except Exception:
             import traceback
             Log.warn(f'{traceback.format_exc(limit=0)}\n{plink_id} \'{dhandler.app_name()}\': probe of {self._url!s} has failed!')
+            return URLProbeResult(suffix='.UNKNOWN', size=0)
 
     async def download(self, plink_id: str, url: URL, config: ExternalURLHandlerConfig) -> list[pathlib.Path | None]:
         try:
