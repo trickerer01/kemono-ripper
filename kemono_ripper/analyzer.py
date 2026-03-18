@@ -85,7 +85,7 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
         title = post['title']
         imported = post['added'] or ''
         published = post['published'] or ''
-        edited = post['edited'] or ''
+        edited = post.get('edited', '')
 
         links_dict: dict[URL, str] = {}
 
