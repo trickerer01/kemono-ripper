@@ -29,6 +29,7 @@ SUPPORTED_TAGS = (
     ('a', 'href'),
     ('img', 'src'),
     ('p', ''),
+    ('', ''),
 )
 
 SUPPORTED_EXTENSIONS = {
@@ -112,7 +113,7 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
 
         def proc_tags(raw_html: BeautifulSoup, tag_type: str, key_name: str) -> None:
             link_idx = len(links_dict)
-            bs_tags = raw_html.find_all(tag_type)
+            bs_tags = raw_html.find_all(tag_type) if tag_type else [raw_html]
             check_mega_keys = tag_type == 'a'
             keys_mega: list[str] = [
                 re.search(r'([-\d\w]{22,})', _.string).group(1)
@@ -130,7 +131,17 @@ async def gather_post_info(posts: Iterable[ScannedPost], api_address: APIAddress
                         continue
                     urls = [URL(bs_tag[key_name].strip())]
                 else:
-                    tag_contents = bs_tag.get_text('\n').strip().split('\n')
+                    tag_contents = []
+                    any_tag = bs_tag.find()
+                    if tag_type or not any_tag:
+                        tag_contents.extend(bs_tag.get_text('\n').strip().split('\n'))
+                    elif any_tag:
+                        for e in bs_tag.childGenerator():
+                            from bs4 import Tag
+                            if bool(str(e).strip()) and not isinstance(e, Tag) and not isinstance(e.previous, Tag):
+                                tag_contents.extend(f'{str(e).strip()}\n')
+                    if not tag_contents:
+                        continue
                     urlset = set[URL]()
                     for s in tag_contents:
                         s_urls = extract_links_from_text(s)

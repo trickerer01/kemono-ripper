@@ -23,7 +23,7 @@ try:
     import sqlite3
     DBConnection: TypeAlias = sqlite3.Connection
 except ImportError:
-    from typing import Generic, TypeAlias, TypeVar
+    from typing import Generic, TypeVar
     T_co = TypeVar('T_co', covariant=True)
 
     class DummyMethod(Generic[T_co]):
