@@ -75,6 +75,8 @@ def make_kemono_options() -> KemonoOptions:
         timeout=Config.timeout,
         nodelay=Config.nodelay,
         proxy=Config.proxy,
+        noproxy_fetch=Config.noproxy_fetch,
+        noproxy_download=Config.noproxy_download,
         extra_headers=Config.extra_headers,
         extra_cookies=Config.extra_cookies,
         filters=(

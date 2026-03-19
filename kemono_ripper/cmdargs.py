@@ -33,6 +33,8 @@ from .defs import (
     HELP_ARG_LOGGING,
     HELP_ARG_MAXJOBS,
     HELP_ARG_NOCOLORS,
+    HELP_ARG_NOPROXY_DOWNLOAD,
+    HELP_ARG_NOPROXY_FETCH,
     HELP_ARG_PATH,
     HELP_ARG_PATH_FORMAT,
     HELP_ARG_POST_FILE,
@@ -239,6 +241,9 @@ def add_common_args(par: ArgumentParser) -> None:
     co.add_argument('-r', '--retries', metavar='#number', default=None, help=HELP_ARG_RETRIES, type=positive_int)
     co.add_argument('-h', '--header', metavar='#name=value', action=ACTION_APPEND, help=HELP_ARG_HEADER, type=valid_kwarg)
     co.add_argument('-c', '--cookie', metavar='#name=value', action=ACTION_APPEND, help=HELP_ARG_COOKIE, type=valid_kwarg)
+    po = par.add_argument_group(title='proxy options')
+    po.add_argument('--noproxy-fetch', action=ACTION_STORE_TRUE, help=HELP_ARG_NOPROXY_FETCH)
+    po.add_argument('--noproxy-download', action=ACTION_STORE_TRUE, help=HELP_ARG_NOPROXY_DOWNLOAD)
     do = par.add_argument_group(title='download options')
     do.add_argument('-o', '--path', default=None, help=HELP_ARG_PATH, type=valid_folder_path)
     do.add_argument('-f', '--path-format', default=None, help=HELP_ARG_PATH_FORMAT, type=valid_path_format)

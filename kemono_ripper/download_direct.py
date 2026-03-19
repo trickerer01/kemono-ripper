@@ -242,7 +242,7 @@ class DirectLinkDownloader:
         tasks = []
         for link in self._links:
             url = URL(link)
-            tasks .append(create_task(self._download(url, self._dest_base / url.name)))
+            tasks.append(create_task(self._download(url, self._dest_base / url.name)))
 
         results: tuple[pathlib.Path | BaseException | None, ...] = await gather(*tasks)
         Log.info(f'Downloaded {len([c for c in results if isinstance(c, pathlib.Path)])} / {len(tasks)} files')

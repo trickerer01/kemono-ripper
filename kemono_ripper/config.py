@@ -51,6 +51,8 @@ class ConfigJSON(TypedDict):
     path_format: str
     indent: int
     proxy: str
+    noproxy_fetch: bool
+    noproxy_download: bool
     logging_flags: int
     disable_log_colors: bool
     skip_external: bool
@@ -128,6 +130,8 @@ class BaseConfig:
         # common
         self.dest_base: pathlib.Path | None = None
         self.proxy: str | None = None
+        self.noproxy_fetch: bool | None = None
+        self.noproxy_download: bool | None = None
         self.download_mode: str | None = None
         self.logging_flags: int | None = None
         self.disable_log_colors: bool | None = None
@@ -161,6 +165,8 @@ class BaseConfig:
             path_format=self.path_format,
             indent=self.indent,
             proxy=self.proxy,
+            noproxy_fetch=self.noproxy_fetch,
+            noproxy_download=self.noproxy_download,
             logging_flags=self.logging_flags,
             disable_log_colors=self.disable_log_colors,
             skip_external=self.skip_external,

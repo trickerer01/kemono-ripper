@@ -27,6 +27,8 @@ class KemonoOptions(NamedTuple):
     timeout: ClientTimeout
     nodelay: bool
     proxy: str
+    noproxy_fetch: bool
+    noproxy_download: bool
     extra_headers: list[tuple[str, str]]
     extra_cookies: list[tuple[str, str]]
     filters: tuple[Filter, ...]

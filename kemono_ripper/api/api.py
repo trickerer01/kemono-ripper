@@ -32,11 +32,12 @@ from .actions import (
     SearchPostsAction,
 )
 from .defs import CONNECT_RETRY_DELAY, MAX_JOBS, POSTS_PER_PAGE, DownloadMode, Mem
-from .exceptions import KemonoErrorCodes, RequestError, ValidationError
+from .exceptions import KemonoErrorCodes, RequestError
 from .filters import Filter, any_filter_matching
 from .logging import Log, set_logger
 from .options import KemonoOptions
 from .request_queue import RequestQueue
+from .sessions import ClientSessionMgr
 from .types import (
     APIAddress,
     APIResponse,
@@ -63,8 +64,7 @@ class Kemono:
         # globals
         set_logger(options.logger)
         # locals
-        self._session: ClientSession | None = None
-        self._user_agent: str = ''
+        self._session_mgr = ClientSessionMgr()
         # options
         self._dest_base: pathlib.Path = options.dest_base
         self._retries: int = options.retries
@@ -74,6 +74,8 @@ class Kemono:
         self._timeout: ClientTimeout = options.timeout
         self._nodelay: bool = options.nodelay
         self._proxy: str = options.proxy
+        self._noproxy_fetch: bool = options.noproxy_fetch
+        self._noproxy_download: bool = options.noproxy_download
         self._extra_headers: list[tuple[str, str]] = options.extra_headers
         self._extra_cookies: list[tuple[str, str]] = options.extra_cookies
         self._filters: tuple[Filter, ...] = options.filters
@@ -91,8 +93,7 @@ class Kemono:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self._session and not self._session.closed:
-            await self._session.close()
+        await self._session_mgr.close()
 
     @property
     def api_address(self) -> APIAddress:
@@ -102,19 +103,17 @@ class Kemono:
     def api_service(self) -> APIService:
         return self._service
 
-    def _make_session(self) -> ClientSession:
-        if self._session is not None:
-            raise ValidationError('make_session should only be called once!')
-        use_proxy = bool(self._proxy)
+    def _make_session(self, use_proxy: bool) -> ClientSession:
+        use_proxy = use_proxy and bool(self._proxy)
         if use_proxy:
             connector = ProxyConnector.from_url(self._proxy, limit=self._max_jobs)
             Log.trace(f'Using proxy {self._proxy}...')
         else:
             connector = TCPConnector(limit=self._max_jobs)
         session = ClientSession(connector=connector, read_bufsize=Mem.MB, timeout=self._timeout)
-        self._user_agent = UAManager.select_useragent(self._proxy if use_proxy else None)
-        Log.trace(f'[{"P" if use_proxy else "NP"}] Selected user-agent \'{self._user_agent}\'...')
-        session.headers.update({'User-Agent': self._user_agent, 'Content-Type': 'application/json', 'Accept': 'text/css'})
+        user_agent = UAManager.select_useragent(self._proxy if use_proxy else None)
+        Log.trace(f'[{"P" if use_proxy else "NP"}] Selected user-agent \'{user_agent}\'...')
+        session.headers.update({'User-Agent': user_agent, 'Content-Type': 'application/json', 'Accept': 'text/css'})
         if self._extra_headers:
             for hk, hv in self._extra_headers:
                 session.headers.update({hk: hv})
@@ -124,22 +123,21 @@ class Kemono:
         return session
 
     async def _wrap_request(self, action: APIAction, try_num: int, **kwargs) -> ClientResponse:
-        assert self._session is not None
+        self._session_mgr.ensure_sessions(self._make_session)
+        no_proxy = kwargs.pop('noproxy', False)
         if self._nodelay is False:
             await RequestQueue.until_ready(str(action.get_url()))
         Log.trace(f'[{try_num + 1:d}] Sending API request: {action!s}')
-        response = await self._session.request(**action.as_api_request_data(), **kwargs)
+        response = await self._session_mgr.get(not no_proxy).request(**action.as_api_request_data(), **kwargs)
         return response
 
     async def _query_api(self, action: APIFetchAction) -> APIResponse:
-        if self._session is None:
-            self._session = self._make_session()
-
+        ckargs: dict[str, bool] = {'noproxy': True} if self._noproxy_fetch else {}
         try_num = 0
         while try_num <= self._retries:
             r: ClientResponse | None = None
             try:
-                async with await self._wrap_request(action, try_num) as r:
+                async with await self._wrap_request(action, try_num, **ckargs) as r:
                     if r.status == 404:
                         Log.error(f'Got 404 for {action.get_url()!s}...!')
                         # try_num = self._retries
@@ -174,9 +172,7 @@ class Kemono:
                 action.post_link.path.touch(exist_ok=True)
             return KemonoErrorCodes.ESUCCESS
 
-        if self._session is None:
-            self._session = self._make_session()
-
+        ckargs: dict[str, bool] = {'noproxy': True} if self._noproxy_download else {}
         try_num = 0
         bytes_written = 0
         while try_num <= self._retries:
@@ -184,7 +180,7 @@ class Kemono:
             try:
                 file_size = action.post_link.path.stat().st_size if action.post_link.path.is_file() else 0
                 hkwargs: dict[str, dict[str, str]] = {'headers': {'Range': f'bytes={file_size:d}-'} if file_size > 0 else {}}
-                async with await self._wrap_request(action, try_num=try_num, **hkwargs) as r:
+                async with await self._wrap_request(action, try_num=try_num, **hkwargs, **ckargs) as r:
                     content_len: int = r.content_length or 0
                     content_range_s = str(r.headers.get('Content-Range', '/')).split('/', 1)
                     content_range = int(content_range_s[1]) if len(content_range_s) > 1 and content_range_s[1].isnumeric() else 1

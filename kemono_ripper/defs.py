@@ -112,6 +112,8 @@ HELP_ARG_VERSION = 'Show program\'s version number and exit'
 HELP_ARG_PATH = 'Download destination. Default is current folder'
 HELP_ARG_PATH_FORMAT = f'Saved post subfolder name format. Default is \'{PATH_FORMAT_DEFAULT}\'. {COMMENT_PATH_FORMAT}'
 HELP_ARG_PROXY = 'Proxy to use, supports basic authentication'
+HELP_ARG_NOPROXY_FETCH = 'Do not use proxy when fetching html (except file probes). Doesn\'t apply to external websites'
+HELP_ARG_NOPROXY_DOWNLOAD = 'Do not use proxy for file downloads and probes. Doesn\'t apply to external websites'
 HELP_ARG_DMMODE = '[Debug] Download (file creation) mode'
 HELP_ARG_LOGGING = (
     f'Logging level: {{{str(list(LOGGING_FLAGS.keys())).replace(" ", "")[1:-1]}}}.'
