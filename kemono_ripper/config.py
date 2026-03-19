@@ -55,6 +55,8 @@ class ConfigJSON(TypedDict):
     disable_log_colors: bool
     skip_external: bool
     skip_completed: bool
+    filter_post_tags: list[str]
+    filter_user_ids: list[str]
     timeout: int
     retries: int
     extra_headers: list[tuple[str, str]]
@@ -77,7 +79,7 @@ class BaseConfig:
         'lines': 'filter_file_lines',
         'ids': 'filter_post_ids',
         'notag': 'filter_post_tags',
-        'nouser': 'filter_user_id',
+        'nouser': 'filter_user_ids',
         'imported': 'filter_post_imported',
         'published': 'filter_post_published',
         'ext': 'filter_extensions',
@@ -117,7 +119,7 @@ class BaseConfig:
         self.filter_post_imported: DateRange | None = None
         self.filter_post_published: DateRange | None = None
         self.filter_extensions: list[str] | None = None
-        self.filter_user_id: list[str] | None = None
+        self.filter_user_ids: list[str] | None = None
         self.src_file: pathlib.Path | None = None
         self.max_jobs: int | None = None
         self.path_format: str | None = None
@@ -163,6 +165,8 @@ class BaseConfig:
             disable_log_colors=self.disable_log_colors,
             skip_external=self.skip_external,
             skip_completed=self.skip_completed,
+            filter_post_tags=self.filter_post_tags,
+            filter_user_ids=self.filter_user_ids,
             timeout=int(self.timeout.connect),
             retries=self.retries,
             extra_headers=self.extra_headers,
@@ -171,10 +175,16 @@ class BaseConfig:
         )
 
     def from_json(self, json_: ConfigJSON) -> None:
+        missing_params = set()
         for param in inspect.get_annotations(ConfigJSON).keys().mapping:
             if param.endswith('_comment'):
                 continue
-            assert param in json_, f'Missing config param: {param}!'
+            if param not in json_:
+                missing_params.add(param)
+        assert not missing_params, (
+            '\n'.join(('', *(f'Missing config param: {_}! Add \'{_}\' to your {CONFIG_NAME_DEFAULT} or use \'config create\'!'
+                             for _ in missing_params)))
+        )
         for k, v in json_.items():
             if k.endswith('_comment'):
                 continue

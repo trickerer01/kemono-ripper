@@ -254,14 +254,18 @@ def add_filtering_args(par: ArgumentParser, add_search_filters: bool, add_downlo
     fi = par.add_argument_group(title='filtering options')
     if add_search_filters:
         fi.add_argument('--ids', metavar='#min-max', default=None, help=HELP_ARG_FILTER_POST_ID_RANGE, type=valid_range)
-        fi.add_argument('--notag', metavar='#pattern', action=ACTION_APPEND, help=HELP_ARG_FILTER_POST_TAGS, type=valid_pattern)
-        fi.add_argument('--nouser', metavar='#pattern', action=ACTION_APPEND, help=HELP_ARG_FILTER_USER_ID, type=valid_pattern)
         fi.add_argument('--imported', metavar='#min..max', default=None, help='', type=valid_date_range)
         fi.add_argument('--published', metavar='#min..max', default=None, help=HELP_ARG_FILTER_POST_DATE_RANGE, type=valid_date_range)
     if add_download_filters:
         # fi.add_argument('--filter-filesize', metavar='#min-max', default=None, help='', type=valid_range)
         fi.add_argument('--filter-filename', metavar='#pattern', default=None, help=HELP_ARG_FILTER_FILENAME, type=valid_pattern)
         fi.add_argument('--ext', metavar='#.EXT', action=ACTION_APPEND, help=HELP_ARG_FILTER_FILEEXT, type=valid_ext)
+
+
+def add_filtering_args2(par: ArgumentParser) -> None:
+    fi2 = par.add_argument_group(title='filtering options 2')
+    fi2.add_argument('--notag', metavar='#pattern', action=ACTION_APPEND, help=HELP_ARG_FILTER_POST_TAGS, type=valid_pattern)
+    fi2.add_argument('--nouser', metavar='#pattern', action=ACTION_APPEND, help=HELP_ARG_FILTER_USER_ID, type=valid_pattern)
 
 
 def add_caching_args(par: ArgumentParser) -> None:
@@ -474,6 +478,7 @@ def parse_arglist(args: Sequence[str]) -> Namespace:
     [add_caching_args(_) for _ in (pcl, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf)]
     [add_common_args(_) for _ in (parser_root, pcl, pcd, pcr, ppl, ppse, pps, ppsi, ppsu, ppsf, ppri, ppru, pprf, pptd, pcfc, pcfm)]
     [add_filtering_args(_, True, _ not in (ppl, ppse)) for _ in (pcr, ppl, ppse, ppri, ppru, pprf)]
+    [add_filtering_args2(_) for _ in (pcr, ppl, ppse, ppri, ppru, pprf, pcfm)]
     [add_logging_args(_) for _ in parsers.values()]
     [add_help(_, _ == parser_root) for _ in parsers.values()]
     return execute_parser(parser_root, args)
@@ -491,6 +496,8 @@ def prepare_arglist(args: Sequence[str]) -> None:
         'disable_log_colors': False,
         'skip_external': False,
         'skip_completed': False,
+        'filter_post_tags': [],
+        'filter_user_ids': [],
         'timeout': valid_timeout(''),
         'retries': CONNECT_RETRIES_BASE,
     }
@@ -509,7 +516,8 @@ def prepare_arglist(args: Sequence[str]) -> None:
             if not cvalue or (parsed_value and (force or parsed_value != default_values.get(pp, parser_default))):
                 svalue = parsed_value if cvalue is None else (parsed_value or cvalue)
                 if isinstance(svalue, list) and isinstance(cvalue, list):
-                    cvalue.extend(svalue)
+                    existing_vals = set(cvalue)
+                    cvalue.extend(_ for _ in svalue if _ not in existing_vals)
                 else:
                     setattr(Config, param, svalue)
         elif param not in (PARSER_PARAM_PARSER_TYPE,):

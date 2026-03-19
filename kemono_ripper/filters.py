@@ -206,9 +206,9 @@ def any_filter_matching_post_info(pinfo: PostInfo, filters: Iterable[PostInfoFil
     return None
 
 
-def make_post_info_filters() -> list[PostInfoFilter]:
+def make_post_info_filters() -> list[PostInfoFilter | None]:
     filters = [
-        UserIdFilter(Config.filter_user_id) if Config.filter_user_id else None,
+        UserIdFilter(Config.filter_user_ids) if Config.filter_user_ids else None,
         PostIdFilter(Config.filter_post_ids) if Config.filter_post_ids else None,
         PostTagsFilter(Config.filter_post_tags) if Config.filter_post_tags else None,
         PostDateImportedFilter(Config.filter_post_imported) if Config.filter_post_imported else None,
