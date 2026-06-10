@@ -143,7 +143,7 @@ class Cache:
     async def _query(query: str, params: Sequence[str | int | float | bool] = ()) -> QueryResult:
         assert Cache._db
         with Cache._db:
-            return Cache._db.execute(f'{query};', params).fetchall()
+            return Cache._db.execute(query, params).fetchall()
 
     @staticmethod
     async def get_post_info_cache(post_ids_: Iterable[str]) -> dict[str, PostInfo]:

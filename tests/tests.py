@@ -65,7 +65,7 @@ class CmdTests(TestCase):
             self.assertEqual(f'{APP_NAME} {APP_VERSION}', stdout.getvalue().strip('\n'))
         print(f'{self._testMethodName} passed')
 
-    @test_prepare()
+    @test_prepare(log=True)
     def test_cmd_config(self):
         arglist1 = ['config', 'create']
         main_sync(arglist1)
