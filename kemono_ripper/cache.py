@@ -89,7 +89,7 @@ class Cache:
     _db: DBConnection | None = None
 
     @classmethod
-    async def __aenter__(cls, _self) -> None:  # noqa PLE0302
+    async def __aenter__(cls, *_) -> None:
         assert cls._db is None
         Log.debug(f'Opening cache DB \'{CACHE_DB_NAME_DEFAULT}\'...')
         cls._db = sqlite3.connect(f'{Config.default_config_path().with_name(CACHE_DB_NAME_DEFAULT).as_posix()}', isolation_level=None)
@@ -99,7 +99,7 @@ class Cache:
         await cls._ensure_db_schema()
 
     @classmethod
-    async def __aexit__(cls, _self, exc_type, exc_val, exc_tb) -> None:  # noqa PLE0302
+    async def __aexit__(cls, *_) -> None:
         cls._db.close()
         cls._db = None
 
