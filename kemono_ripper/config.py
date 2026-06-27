@@ -18,14 +18,13 @@ from .defs import (
     COMMENT_PATH_FORMAT,
     CONFIG_NAME_DEFAULT,
     CONNECT_TIMEOUT_SOCKET_READ,
-    NUM_EXTERNAL_SITES,
     DateRange,
     NumRange,
     SupportedExternalWebsites,
 )
 
 if False is True:  # for hinting only
-    from .api import APIAddress, APIService, PostPageScanResult  # noqa: I001
+    from .api import APIAddress, APIService, PostPageScanResult
 
 __all__ = ('Config', 'ExternalURLHandlerConfig')
 
@@ -67,7 +66,6 @@ class ConfigJSON(TypedDict):
 
 
 PER_WEBSITE_CONFIG_DEFAULT = dict.fromkeys((_.value for _ in SupportedExternalWebsites.__members__.values()), DownloaderConfig(proxy=''))
-assert len(PER_WEBSITE_CONFIG_DEFAULT) == NUM_EXTERNAL_SITES
 
 
 class BaseConfig:
@@ -189,8 +187,7 @@ class BaseConfig:
                 missing_params.add(param)
         assert not missing_params, (
             '\n'.join(('', *(f'Missing config param: {_}! Add \'{_}\' to your {CONFIG_NAME_DEFAULT} or use \'config create\'!'
-                             for _ in missing_params)))
-        )
+                             for _ in missing_params))))
         for k, v in json_.items():
             if k.endswith('_comment'):
                 continue

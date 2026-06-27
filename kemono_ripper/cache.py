@@ -7,13 +7,12 @@ Author: trickerer (https://github.com/trickerer, https://github.com/trickerer01)
 #
 
 import itertools
-from collections import namedtuple
 from collections.abc import Iterable, Sequence
-from typing import TypeAlias
+from typing import NamedTuple, TypeAlias
 
 from yarl import URL
 
-from .api import DownloadStatus, FormattablePost, PostInfo, PostLinkInfo, SQLSchema, UserInfo
+from .api import DownloadStatus, FormattablePost, PostInfo, PostLinkInfo, SQLColumn, SQLiteTypes, SQLSchema, UserInfo
 from .config import Config
 from .defs import CACHE_DB_NAME_DEFAULT
 from .formatter import format_path
@@ -49,9 +48,17 @@ except ImportError:
 __all__ = ('Cache',)
 
 QueryResult: TypeAlias = list[tuple[str | int | float | bool | None, ...]]
-SchemaDumpRow = namedtuple('SchemaDumpRow', ('cid', 'col_name', 'data_type', 'not_null', 'default', 'is_pk'))
 
 TableSchemas = (PostInfo, PostLinkInfo, UserInfo)
+
+
+class SchemaDumpRow(NamedTuple):
+    cid: int
+    col_name: str
+    data_type: SQLiteTypes
+    not_null: bool
+    default: str | None
+    is_pk: bool
 
 
 def _make_schema_string(schema: SQLSchema) -> str:
@@ -71,12 +78,12 @@ def _verify_schema(schema: SQLSchema, schema_dump: QueryResult) -> bool:
         return False
     for idx, r in enumerate(schema_dump):
         row = SchemaDumpRow(*r)
-        schema_col = schema.columns[idx]
+        schema_col: SQLColumn = schema.columns[idx]
         if row.col_name != schema_col.name:
             return False
         if row.data_type != schema_col.data_type:
             return False
-        if bool(row.not_null) is not schema_col.not_null:
+        if row.not_null is not schema_col.not_null:
             return False
         if row.default != schema_col.default:
             return False
@@ -121,7 +128,6 @@ class Cache:
 
     @staticmethod
     async def _dump_table_schema(table_name: str) -> QueryResult:
-        # results = await Cache._query("SELECT `sql` FROM `sqlite_master` WHERE `type`='table' AND `name`=?", (table_name,))
         results = await Cache._query(f"PRAGMA TABLE_INFO('{table_name}')")
         return results
 

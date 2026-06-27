@@ -33,13 +33,6 @@ POST_TAGS_PER_POST_INFO_NAME_DEFAULT = '!info.json'
 POST_DONE_FILE_NAME_DEFAULT = 'done'
 FILE_NAME_FULL_MAX_LEN = 220
 
-SITE_MEGA = 'mega.nz'
-SITE_MEDIAFIRE = 'www.mediafire.com'
-SITE_CATBOX = 'files.catbox.moe'
-SITE_WEBMSHARE = 'webmshare.com'
-SITE_DROPBOX = 'www.dropbox.com'
-NUM_EXTERNAL_SITES = 5
-
 CONNECT_RETRIES_BASE = 50
 CONNECT_TIMEOUT_BASE = 10
 CONNECT_TIMEOUT_SOCKET_READ = 30
@@ -69,11 +62,11 @@ PATH_FORMAT_DEFAULT = f'{PathTokens.Creator.value!s} - {PathTokens.PostId.value!
 
 
 class SupportedExternalWebsites(str, Enum):
-    Mega = SITE_MEGA
-    Mediafire = SITE_MEDIAFIRE
-    Catbox = SITE_CATBOX
-    WebmShare = SITE_WEBMSHARE
-    Dropbox = SITE_DROPBOX
+    Mega = 'mega.nz'
+    Mediafire = 'www.mediafire.com'
+    Catbox = 'files.catbox.moe'
+    WebmShare = 'webmshare.com'
+    Dropbox = 'www.dropbox.com'
 
 
 class LoggingFlags(IntEnum):

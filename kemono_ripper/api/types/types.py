@@ -277,9 +277,12 @@ class URLProbeResult(NamedTuple):
     size: int
 
 
+SQLiteTypes: TypeAlias = Literal['TEXT', 'INTEGER', 'REAL', 'BLOB']
+
+
 class SQLColumn(NamedTuple):
     name: str
-    data_type: Literal['TEXT', 'INTEGER', 'REAL', 'BLOB']
+    data_type: SQLiteTypes
     not_null: bool
     default: str | None
 
