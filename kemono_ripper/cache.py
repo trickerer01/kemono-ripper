@@ -47,7 +47,7 @@ except ImportError:
 
 __all__ = ('Cache',)
 
-QueryResult: TypeAlias = list[tuple[str | int | float | bool | None, ...]]
+QueryResult: TypeAlias = list[tuple[SQLiteTypes | str | int | float | bool | None, ...]]
 
 TableSchemas = (PostInfo, PostLinkInfo, UserInfo)
 
@@ -75,19 +75,25 @@ def _make_schema_string(schema: SQLSchema) -> str:
 
 def _verify_schema(schema: SQLSchema, schema_dump: QueryResult) -> bool:
     if len(schema.columns) != len(schema_dump):
+        Log.error(f'_verify_schema: Schema len mismatch: \'{len(schema.columns)}\' != \'{len(schema_dump)}\'!')
         return False
     for idx, r in enumerate(schema_dump):
-        row = SchemaDumpRow(*r)
+        row = SchemaDumpRow(cid=r[0], col_name=r[1], data_type=r[2], not_null=bool(r[3]), default=r[4], is_pk=bool(r[5]))
         schema_col: SQLColumn = schema.columns[idx]
         if row.col_name != schema_col.name:
+            Log.error(f'_verify_schema: Schema column name mismatch: \'{row.col_name}\' != \'{schema_col.name}\'!')
             return False
         if row.data_type != schema_col.data_type:
+            Log.error(f'_verify_schema: Schema data type mismatch: \'{row.data_type}\' != \'{schema_col.data_type}\'!')
             return False
         if row.not_null is not schema_col.not_null:
+            Log.error(f'_verify_schema: Schema not_null mismatch: \'{row.not_null}\' != \'{schema_col.not_null}\'!')
             return False
         if row.default != schema_col.default:
+            Log.error(f'_verify_schema: Schema default mismatch: \'{row.default}\' != \'{schema_col.default}\'!')
             return False
         if row.is_pk and row.col_name not in schema.primary_key:
+            Log.error(f'_verify_schema: Schema is_pk mismatch: \'{row.col_name}\' <= \'{schema.primary_key!s}\'!')
             return False
     return True
 

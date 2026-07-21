@@ -170,9 +170,9 @@ async def creator_dump(kemono: Kemono) -> None:
 
 
 async def creator_list(kemono: Kemono) -> None:
-    results = await Cache.get_user_infos_cache()
+    results: list[UserInfo] = (await Cache.get_user_infos_cache()) if not Config.skip_cache else []
     if not results:
-        Log.info('Creator names cache doesn\'t exist, fetching full list...')
+        Log.info('Creator names cache doesn\'t exist or ignored, fetching full list...')
         await creator_dump(kemono)
         results = await Cache.get_user_infos_cache()
     else:

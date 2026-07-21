@@ -8,6 +8,7 @@
   - [dropbox.com](https://www.dropbox.com)
   - [webmshare.com](https://webmshare.com)
   - [catbox.moe](https://catbox.moe)
+  - Any generic *direct* link
   - Site support requests go to [issues](https://github.com/trickerer01/kemono-ripper/issues)
 - Supports numerous filter types:
   - post id range
