@@ -127,6 +127,8 @@ class Kemono:
         no_proxy = kwargs.pop('noproxy', False)
         if self._nodelay is False:
             await RequestQueue.until_ready(str(action.get_url()))
+        # if True is True:  # TODO: Determine conditions for appending referer header
+        #     kwargs.update({'headers': {'Referer': kwargs.get('Referer', action.get_url().with_path(''))}})
         Log.trace(f'[{try_num + 1:d}] Sending API request: {action!s}')
         response = await self._session_mgr.get(not no_proxy).request(**action.as_api_request_data(), **kwargs)
         return response
